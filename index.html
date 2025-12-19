@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🍪 Cookie Clicker Game</title>
+    <title>🍪 Печеньки и Бомбы 💣</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         * {
             margin: 0;
@@ -13,224 +14,471 @@
         
         body {
             font-family: 'Arial', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            color: white;
             min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             padding: 20px;
+            text-align: center;
         }
         
+        /* Telegram кнопки */
+        .tg-header {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .tg-btn {
+            background: #0088cc;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        /* Игровая область */
         .game-container {
-            background: white;
-            border-radius: 20px;
-            padding: 30px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            text-align: center;
             max-width: 500px;
-            width: 100%;
+            margin: 0 auto;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
         }
         
         h1 {
-            color: #333;
-            margin-bottom: 20px;
             font-size: 2.5em;
+            margin-bottom: 20px;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
         }
         
-        .cookie {
-            font-size: 120px;
-            cursor: pointer;
-            transition: transform 0.1s;
+        /* Статистика */
+        .stats {
+            display: flex;
+            justify-content: space-around;
             margin: 20px 0;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+        }
+        
+        .stat-item {
+            font-size: 1.2em;
+        }
+        
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        
+        /* Игровое поле */
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin: 30px 0;
+        }
+        
+        .cell {
+            width: 70px;
+            height: 70px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            cursor: pointer;
+            transition: all 0.2s;
             user-select: none;
         }
         
-        .cookie:active {
-            transform: scale(0.9);
+        .cell:hover {
+            transform: scale(1.1);
+            background: rgba(255, 255, 255, 0.2);
         }
         
-        .counter {
-            font-size: 48px;
-            font-weight: bold;
-            color: #4CAF50;
+        .cell.cookie {
+            background: rgba(139, 195, 74, 0.3);
+            border: 2px solid #8BC34A;
+        }
+        
+        .cell.bomb {
+            background: rgba(244, 67, 54, 0.3);
+            border: 2px solid #F44336;
+        }
+        
+        /* Кнопки управления */
+        .controls {
             margin: 20px 0;
         }
         
-        .stats {
-            background: #f5f5f5;
-            padding: 15px;
-            border-radius: 10px;
-            margin: 15px 0;
-            font-size: 18px;
-        }
-        
-        .upgrades {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            justify-content: center;
-            margin: 20px 0;
-        }
-        
-        .upgrade-btn {
-            background: #4CAF50;
+        .control-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
             border: none;
-            padding: 12px 20px;
+            padding: 15px 30px;
+            font-size: 18px;
             border-radius: 10px;
-            font-size: 16px;
             cursor: pointer;
-            transition: background 0.3s;
+            margin: 10px;
+            transition: transform 0.2s;
         }
         
-        .upgrade-btn:hover {
-            background: #45a049;
+        .control-btn:hover {
+            transform: scale(1.05);
         }
         
-        .upgrade-btn:disabled {
-            background: #cccccc;
-            cursor: not-allowed;
+        /* Рейтинг */
+        .leaderboard {
+            margin-top: 30px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
         }
         
-        .instructions {
-            margin-top: 25px;
-            color: #666;
-            font-size: 14px;
-            line-height: 1.5;
+        /* Для не-Telegram пользователей */
+        .non-tg {
+            display: none;
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
         }
     </style>
 </head>
 <body>
-    <div class="game-container">
-        <h1>🍪 Cookie Clicker</h1>
-        
-        <div class="counter" id="counter">Печенек: <span id="cookieCount">0</span></div>
-        
-        <div class="cookie" id="cookie" onclick="clickCookie()">🍪</div>
-        
-        <div class="stats">
-            <p>📈 Печенек в секунду: <span id="cookiesPerSecond">0</span></p>
-            <p>🔧 Авто-кликеров: <span id="autoClickers">0</span></p>
-            <p>🏭 Фабрик: <span id="factories">0</span></p>
+    <!-- Telegram Header (скрыт по умолчанию) -->
+    <div class="tg-header" id="tgHeader" style="display: none;">
+        <div>
+            <span id="username">Игрок</span>
+            <div style="font-size: 12px;">ID: <span id="userid"></span></div>
         </div>
-        
-        <div class="upgrades">
-            <button class="upgrade-btn" onclick="buyAutoClicker()" id="autoClickerBtn">
-                🤖 Авто-кликер<br>
-                <small>Цена: 10 печенек</small>
-            </button>
-            
-            <button class="upgrade-btn" onclick="buyFactory()" id="factoryBtn">
-                🏭 Фабрика<br>
-                <small>Цена: 50 печенек</small>
-            </button>
-            
-            <button class="upgrade-btn" onclick="buyMegaFactory()" id="megaFactoryBtn">
-                🚀 Мега-фабрика<br>
-                <small>Цена: 200 печенек</small>
-            </button>
-        </div>
-        
-        <div class="instructions">
-            <p><strong>Как играть:</strong></p>
-            <p>1. Кликайте на печеньку чтобы получать печеньки 🍪</p>
-            <p>2. Покупайте улучшения чтобы зарабатывать автоматически</p>
-            <p>3. Соревнуйтесь с друзьями!</p>
+        <div>
+            <button class="tg-btn" id="shareBtn">📤 Поделиться</button>
+            <button class="tg-btn" id="closeBtn">❌ Закрыть</button>
         </div>
     </div>
-
+    
+    <!-- Игра -->
+    <div class="game-container">
+        <h1>🍪 Печеньки и Бомбы 💣</h1>
+        
+        <!-- Статистика -->
+        <div class="stats">
+            <div class="stat-item">
+                <div>СЧЕТ</div>
+                <div class="stat-value" id="score">0</div>
+            </div>
+            <div class="stat-item">
+                <div>ВРЕМЯ</div>
+                <div class="stat-value" id="time">30</div>
+            </div>
+            <div class="stat-item">
+                <div>УРОВЕНЬ</div>
+                <div class="stat-value" id="level">1</div>
+            </div>
+        </div>
+        
+        <!-- Игровое поле -->
+        <div class="game-board" id="gameBoard">
+            <!-- Ячейки генерируются скриптом -->
+        </div>
+        
+        <!-- Управление -->
+        <div class="controls">
+            <button class="control-btn" id="startBtn">▶️ НАЧАТЬ ИГРУ</button>
+            <button class="control-btn" id="pauseBtn" style="display: none;">⏸️ ПАУЗА</button>
+        </div>
+        
+        <!-- Правила -->
+        <div style="margin: 20px 0; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px;">
+            <h3>🎯 ПРАВИЛА:</h3>
+            <p>• Кликай на 🍪 — получаешь +10 очков</p>
+            <p>• Избегай 💣 — теряешь -50 очков</p>
+            <p>• У тебя 30 секунд!</p>
+        </div>
+        
+        <!-- Рейтинг для Telegram -->
+        <div class="leaderboard" id="leaderboard" style="display: none;">
+            <h3>🏆 ТОП ИГРОКОВ:</h3>
+            <div id="topPlayers">Загрузка...</div>
+        </div>
+        
+        <!-- Для тех, кто не в Telegram -->
+        <div class="non-tg" id="nonTg">
+            <h3>🚀 Хочешь играть в Telegram?</h3>
+            <a href="https://t.me/YourBotUsername" 
+               style="display: inline-block; padding: 15px 30px; background: #0088cc; color: white; text-decoration: none; border-radius: 10px; font-size: 18px; margin-top: 15px;">
+               🎮 ОТКРЫТЬ В TELEGRAM
+            </a>
+        </div>
+    </div>
+    
     <script>
-        // Игровые переменные
-        let cookies = 0;
-        let autoClickers = 0;
-        let factories = 0;
-        let megaFactories = 0;
+        // ========== ТЕЛЕГРАМ ФУНКЦИОНАЛ ==========
+        const tg = window.Telegram?.WebApp;
         
-        // Цены
-        const AUTO_CLICKER_PRICE = 10;
-        const FACTORY_PRICE = 50;
-        const MEGA_FACTORY_PRICE = 200;
-        
-        // Элементы
-        const cookieCountEl = document.getElementById('cookieCount');
-        const cookiesPerSecondEl = document.getElementById('cookiesPerSecond');
-        const autoClickersEl = document.getElementById('autoClickers');
-        const factoriesEl = document.getElementById('factories');
-        
-        // Клик по печеньке
-        function clickCookie() {
-            cookies++;
-            updateDisplay();
+        if (tg) {
+            // Инициализация Telegram Mini App
+            tg.ready();
+            tg.expand();
             
-            // Анимация
-            const cookie = document.getElementById('cookie');
-            cookie.style.transform = 'scale(0.9)';
-            setTimeout(() => {
-                cookie.style.transform = 'scale(1)';
-            }, 100);
+            // Показываем Telegram header
+            document.getElementById('tgHeader').style.display = 'flex';
+            document.getElementById('leaderboard').style.display = 'block';
+            
+            // Получаем данные пользователя
+            const user = tg.initDataUnsafe?.user;
+            if (user) {
+                document.getElementById('username').textContent = user.first_name || 'Игрок';
+                document.getElementById('userid').textContent = user.id || '???';
+            }
+            
+            // Кнопка "Поделиться"
+            document.getElementById('shareBtn').onclick = () => {
+                const shareText = `Я набрал ${score} очков в игре "Печеньки и Бомбы"! 🍪💣\nПопробуй побить мой рекорд!`;
+                tg.shareURL(window.location.href, shareText);
+            };
+            
+            // Кнопка "Закрыть"
+            document.getElementById('closeBtn').onclick = () => {
+                tg.close();
+            };
+            
+            // Функция отправки счета в бота
+            function sendScoreToBot(finalScore) {
+                if (!user) return;
+                
+                const data = {
+                    action: 'game_score',
+                    user_id: user.id,
+                    username: user.first_name,
+                    score: finalScore,
+                    game: 'cookies_and_bombs',
+                    timestamp: Date.now()
+                };
+                
+                tg.sendData(JSON.stringify(data));
+                
+                // Также можно отправить через Bot API
+                fetch(`https://api.telegram.org/bot${tg.initData}/sendGameScore`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                }).catch(e => console.log('Ошибка отправки счета:', e));
+            }
+            
+        } else {
+            // Показываем кнопку "Открыть в Telegram"
+            document.getElementById('nonTg').style.display = 'block';
         }
         
-        // Покупка авто-кликера
-        function buyAutoClicker() {
-            if (cookies >= AUTO_CLICKER_PRICE) {
-                cookies -= AUTO_CLICKER_PRICE;
-                autoClickers++;
-                updateDisplay();
+        // ========== ИГРОВАЯ ЛОГИКА ==========
+        let score = 0;
+        let timeLeft = 30;
+        let level = 1;
+        let gameActive = false;
+        let gameTimer;
+        let cookieCount = 3;
+        let bombCount = 1;
+        
+        // Генерация игрового поля
+        function generateBoard() {
+            const board = document.getElementById('gameBoard');
+            board.innerHTML = '';
+            
+            const totalCells = 16;
+            const cells = [];
+            
+            // Добавляем печеньки
+            for (let i = 0; i < cookieCount; i++) {
+                cells.push({type: 'cookie', emoji: '🍪', value: 10});
+            }
+            
+            // Добавляем бомбы
+            for (let i = 0; i < bombCount; i++) {
+                cells.push({type: 'bomb', emoji: '💣', value: -50});
+            }
+            
+            // Заполняем пустые клетки
+            while (cells.length < totalCells) {
+                cells.push({type: 'empty', emoji: '⬜', value: 0});
+            }
+            
+            // Перемешиваем
+            shuffleArray(cells);
+            
+            // Создаем клетки
+            cells.forEach((cell, index) => {
+                const cellDiv = document.createElement('div');
+                cellDiv.className = `cell ${cell.type}`;
+                cellDiv.textContent = cell.emoji;
+                cellDiv.dataset.type = cell.type;
+                cellDiv.dataset.value = cell.value;
+                
+                cellDiv.onclick = () => handleCellClick(cellDiv);
+                
+                board.appendChild(cellDiv);
+            });
+        }
+        
+        // Обработка клика по клетке
+        function handleCellClick(cell) {
+            if (!gameActive) return;
+            
+            const type = cell.dataset.type;
+            const value = parseInt(cell.dataset.value);
+            
+            if (type === 'cookie') {
+                score += value;
+                cell.textContent = '✅';
+                cell.style.background = 'rgba(76, 175, 80, 0.5)';
+                playSound('cookie');
+            } 
+            else if (type === 'bomb') {
+                score += value;
+                if (score < 0) score = 0;
+                cell.textContent = '💥';
+                cell.style.background = 'rgba(244, 67, 54, 0.5)';
+                playSound('bomb');
+                showAlert('💥 БОМБА! -50 очков!');
+            }
+            
+            cell.style.pointerEvents = 'none';
+            updateScore();
+        }
+        
+        // Обновление счета
+        function updateScore() {
+            document.getElementById('score').textContent = score;
+            
+            // Отправляем счет в Telegram (каждые 10 очков)
+            if (tg && score > 0 && score % 10 === 0) {
+                setTimeout(() => sendScoreToBot(score), 100);
             }
         }
         
-        // Покупка фабрики
-        function buyFactory() {
-            if (cookies >= FACTORY_PRICE) {
-                cookies -= FACTORY_PRICE;
-                factories++;
-                updateDisplay();
+        // Таймер игры
+        function startTimer() {
+            gameTimer = setInterval(() => {
+                timeLeft--;
+                document.getElementById('time').textContent = timeLeft;
+                
+                if (timeLeft <= 0) {
+                    endGame();
+                }
+                
+                // Каждые 10 секунд увеличиваем сложность
+                if (timeLeft === 20 || timeLeft === 10) {
+                    level++;
+                    bombCount++;
+                    cookieCount++;
+                    document.getElementById('level').textContent = level;
+                    generateBoard();
+                    showAlert(`🔥 Уровень ${level}! Больше бомб!`);
+                }
+            }, 1000);
+        }
+        
+        // Начало игры
+        function startGame() {
+            if (gameActive) return;
+            
+            score = 0;
+            timeLeft = 30;
+            level = 1;
+            cookieCount = 3;
+            bombCount = 1;
+            gameActive = true;
+            
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('pauseBtn').style.display = 'inline-block';
+            
+            updateScore();
+            generateBoard();
+            startTimer();
+            
+            if (tg) {
+                tg.HapticFeedback.impactOccurred('medium');
             }
         }
         
-        // Покупка мега-фабрики
-        function buyMegaFactory() {
-            if (cookies >= MEGA_FACTORY_PRICE) {
-                cookies -= MEGA_FACTORY_PRICE;
-                megaFactories++;
-                updateDisplay();
+        // Конец игры
+        function endGame() {
+            clearInterval(gameTimer);
+            gameActive = false;
+            
+            document.getElementById('startBtn').style.display = 'inline-block';
+            document.getElementById('pauseBtn').style.display = 'none';
+            
+            // Отправляем финальный счет в Telegram
+            if (tg) {
+                sendScoreToBot(score);
+                tg.HapticFeedback.notificationOccurred('success');
+                
+                // Показываем результат
+                showAlert(`🎮 Игра окончена!\nВаш счет: ${score}\nУровень: ${level}`);
+            } else {
+                showAlert(`Игра окончена! Ваш счет: ${score}`);
+            }
+            
+            // Обновляем рейтинг
+            updateLeaderboard();
+        }
+        
+        // Пауза
+        function togglePause() {
+            if (!gameActive) return;
+            
+            if (gameTimer) {
+                clearInterval(gameTimer);
+                gameTimer = null;
+                document.getElementById('pauseBtn').textContent = '▶️ ПРОДОЛЖИТЬ';
+            } else {
+                startTimer();
+                document.getElementById('pauseBtn').textContent = '⏸️ ПАУЗА';
             }
         }
         
-        // Обновление отображения
-        function updateDisplay() {
-            cookieCountEl.textContent = Math.floor(cookies);
-            autoClickersEl.textContent = autoClickers;
-            factoriesEl.textContent = factories;
-            
-            // Обновляем кнопки
-            document.getElementById('autoClickerBtn').disabled = cookies < AUTO_CLICKER_PRICE;
-            document.getElementById('factoryBtn').disabled = cookies < FACTORY_PRICE;
-            document.getElementById('megaFactoryBtn').disabled = cookies < MEGA_FACTORY_PRICE;
-            
-            // Считаем печеньки в секунду
-            const cps = autoClickers * 1 + factories * 5 + megaFactories * 25;
-            cookiesPerSecondEl.textContent = cps;
+        // Вспомогательные функции
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
         }
         
-        // Автоматическое производство
-        function autoProduction() {
-            const cps = autoClickers * 1 + factories * 5 + megaFactories * 25;
-            cookies += cps / 10; // 10 раз в секунду
-            updateDisplay();
+        function playSound(type) {
+            // Можно добавить звуки позже
         }
         
-        // Запускаем игровой цикл
-        setInterval(autoProduction, 100);
+        function showAlert(message) {
+            alert(message);
+        }
+        
+        function updateLeaderboard() {
+            // Здесь будет загрузка топа из бота
+            document.getElementById('topPlayers').innerHTML = `
+                <p>1. Вы: ${score} очков</p>
+                <p>2. Игрок 2: 150 очков</p>
+                <p>3. Игрок 3: 120 очков</p>
+            `;
+        }
         
         // Инициализация
-        updateDisplay();
+        document.getElementById('startBtn').onclick = startGame;
+        document.getElementById('pauseBtn').onclick = togglePause;
         
-        // Для Telegram Mini Apps (позже добавим)
-        if (window.Telegram?.WebApp) {
-            Telegram.WebApp.ready();
-            Telegram.WebApp.expand();
-        }
+        // Генерируем начальное поле
+        generateBoard();
     </script>
 </body>
 </html>
