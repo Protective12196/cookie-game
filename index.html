@@ -1,687 +1,1406 @@
-import os
-import json
-import logging
-import sqlite3
-from datetime import datetime
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext, CallbackQueryHandler
-from telegram.constants import ParseMode
-
-# ========== НАСТРОЙКА ЛОГИРОВАНИЯ ==========
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
-logger = logging.getLogger(__name__)
-
-# ========== ЗАГРУЗКА ТОКЕНА ==========
-TOKEN = "8234279270:AAE45bp2T9tZZFMfAIik2V6mZ6ABRSwtDtY"  # ВАШ ТОКЕН
-
-if not TOKEN:
-    logger.error("❌ ОШИБКА: Токен не найден!")
-    exit(1)
-
-logger.info(f"✅ Токен загружен!")
-
-# ========== НАСТРОЙКИ ==========
-WEB_APP_URL = "https://protective12196.github.io/cookie-game/index.html"  # ВАША ССЫЛКА
-DB_NAME = 'game_stats.db'
-
-# ========== БАЗА ДАННЫХ ==========
-def init_db():
-    """Создаем базу данных если её нет"""
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    
-    # Улучшенная таблица пользователей
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            user_id INTEGER PRIMARY KEY,
-            username TEXT,
-            first_name TEXT,
-            last_name TEXT,
-            photo_url TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
-    # Улучшенная таблица результатов
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS game_results (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            score INTEGER,
-            bombs INTEGER,
-            cookies_found INTEGER,
-            total_cookies INTEGER,
-            game_won BOOLEAN,
-            difficulty_multiplier REAL,
-            played_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users (user_id)
-        )
-    ''')
-    
-    # Улучшенная таблица лидеров
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS leaderboard (
-            user_id INTEGER PRIMARY KEY,
-            best_score INTEGER DEFAULT 0,
-            total_games INTEGER DEFAULT 0,
-            total_score INTEGER DEFAULT 0,
-            last_played TIMESTAMP,
-            avg_score REAL DEFAULT 0,
-            FOREIGN KEY (user_id) REFERENCES users (user_id)
-        )
-    ''')
-    
-    # Таблица для глобального рейтинга
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS global_stats (
-            total_players INTEGER DEFAULT 0,
-            total_games INTEGER DEFAULT 0,
-            total_score INTEGER DEFAULT 0,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
-    # Вставляем начальные данные если таблица пуста
-    cursor.execute('SELECT COUNT(*) FROM global_stats')
-    if cursor.fetchone()[0] == 0:
-        cursor.execute('INSERT INTO global_stats (total_players, total_games, total_score) VALUES (0, 0, 0)')
-    
-    conn.commit()
-    conn.close()
-    logger.info("✅ База данных инициализирована")
-
-def save_user(user_data):
-    """Сохраняем информацию о пользователе"""
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        INSERT OR REPLACE INTO users 
-        (user_id, username, first_name, last_name, photo_url, updated_at)
-        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-    ''', (
-        user_data['id'],
-        user_data.get('username'),
-        user_data.get('first_name'),
-        user_data.get('last_name'),
-        user_data.get('photo_url')
-    ))
-    
-    conn.commit()
-    conn.close()
-
-def save_game_result(user_id, game_data):
-    """Сохраняем результат игры"""
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    
-    # Сохраняем детали игры
-    cursor.execute('''
-        INSERT INTO game_results 
-        (user_id, score, bombs, cookies_found, total_cookies, game_won, difficulty_multiplier)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    ''', (
-        user_id,
-        game_data.get('score', 0),
-        game_data.get('bombs', 5),
-        game_data.get('cookies_found', 0),
-        game_data.get('maxCookies', 20),
-        game_data.get('gameWon', False),
-        game_data.get('difficultyMultiplier', 1.0)
-    ))
-    
-    # Получаем статистику пользователя
-    cursor.execute('''
-        SELECT 
-            MAX(score) as best_score,
-            COUNT(*) as total_games,
-            SUM(score) as total_score
-        FROM game_results 
-        WHERE user_id = ?
-    ''', (user_id,))
-    
-    result = cursor.fetchone()
-    best_score = result[0] or 0
-    total_games = result[1] or 0
-    total_score = result[2] or 0
-    avg_score = total_score / total_games if total_games > 0 else 0
-    
-    # Обновляем таблицу лидеров
-    cursor.execute('''
-        INSERT OR REPLACE INTO leaderboard 
-        (user_id, best_score, total_games, total_score, last_played, avg_score)
-        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
-    ''', (user_id, best_score, total_games, total_score, avg_score))
-    
-    # Обновляем глобальную статистику
-    cursor.execute('''
-        UPDATE global_stats 
-        SET total_games = total_games + 1,
-            total_score = total_score + ?,
-            updated_at = CURRENT_TIMESTAMP
-    ''', (game_data.get('score', 0),))
-    
-    # Обновляем количество уникальных игроков
-    cursor.execute('SELECT COUNT(DISTINCT user_id) FROM game_results')
-    total_players = cursor.fetchone()[0]
-    cursor.execute('UPDATE global_stats SET total_players = ?', (total_players,))
-    
-    conn.commit()
-    conn.close()
-    logger.info(f"✅ Результат сохранен для пользователя {user_id}: {game_data.get('score', 0)} очков")
-
-def get_leaderboard(limit=10, days=None):
-    """Получаем топ игроков с фильтром по времени"""
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    
-    if days:
-        # Топ за последние N дней
-        cursor.execute('''
-            SELECT 
-                u.user_id,
-                u.first_name,
-                u.username,
-                u.photo_url,
-                MAX(gr.score) as best_score,
-                COUNT(gr.id) as games_played,
-                AVG(gr.score) as avg_score
-            FROM game_results gr
-            JOIN users u ON gr.user_id = u.user_id
-            WHERE gr.played_at >= datetime('now', ?)
-            GROUP BY gr.user_id
-            ORDER BY best_score DESC
-            LIMIT ?
-        ''', (f'-{days} days', limit))
-    else:
-        # Общий топ
-        cursor.execute('''
-            SELECT 
-                u.user_id,
-                u.first_name,
-                u.username,
-                u.photo_url,
-                l.best_score,
-                l.total_games as games_played,
-                l.avg_score
-            FROM leaderboard l
-            JOIN users u ON l.user_id = u.user_id
-            WHERE l.best_score > 0
-            ORDER BY l.best_score DESC
-            LIMIT ?
-        ''', (limit,))
-    
-    rows = cursor.fetchall()
-    conn.close()
-    
-    return [
-        {
-            'id': row[0],
-            'first_name': row[1],
-            'username': row[2],
-            'photo_url': row[3],
-            'score': row[4],
-            'games': row[5],
-            'avg_score': round(row[6], 1) if row[6] else 0
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🍪 Печеньки и Бомбы 💣</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        for row in rows
-    ]
-
-def get_user_stats(user_id):
-    """Получаем статистику пользователя"""
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        SELECT 
-            l.best_score,
-            l.total_games,
-            l.total_score,
-            l.avg_score,
-            COUNT(DISTINCT DATE(gr.played_at)) as days_played,
-            MAX(gr.played_at) as last_game
-        FROM leaderboard l
-        LEFT JOIN game_results gr ON l.user_id = gr.user_id
-        WHERE l.user_id = ?
-        GROUP BY l.user_id
-    ''', (user_id,))
-    
-    row = cursor.fetchone()
-    
-    # Получаем место в рейтинге
-    cursor.execute('''
-        SELECT COUNT(*) + 1 
-        FROM leaderboard 
-        WHERE best_score > (SELECT best_score FROM leaderboard WHERE user_id = ?)
-    ''', (user_id,))
-    rank = cursor.fetchone()[0] or 1
-    
-    conn.close()
-    
-    if row:
-        return {
-            'best_score': row[0] or 0,
-            'total_games': row[1] or 0,
-            'total_score': row[2] or 0,
-            'avg_score': round(row[3] or 0, 1),
-            'days_played': row[4] or 0,
-            'last_game': row[5],
-            'rank': rank
+        
+        :root {
+            --bg-dark: #1a1a2e;
+            --bg-light: #f0f2f5;
+            --panel-dark: #2d2d44;
+            --panel-light: #ffffff;
+            --cell-dark: #3a3a5d;
+            --cell-light: #e4e6eb;
+            --cookie-color: #8BC34A;
+            --bomb-color: #F44336;
+            --text-dark: #ffffff;
+            --text-light: #1c1c1c;
+            --accent: #0088cc;
+            --accent-hover: #006699;
+            --success: #4CAF50;
+            --danger: #dc3545;
+            --warning: #ff9800;
         }
-    return {'best_score': 0, 'total_games': 0, 'total_score': 0, 'avg_score': 0, 'days_played': 0, 'rank': 1}
-
-def get_global_stats():
-    """Получаем глобальную статистику"""
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        SELECT 
-            total_players,
-            total_games,
-            total_score,
-            updated_at
-        FROM global_stats
-    ''')
-    
-    row = cursor.fetchone()
-    conn.close()
-    
-    if row:
-        avg_score = row[2] / row[1] if row[1] > 0 else 0
-        return {
-            'total_players': row[0],
-            'total_games': row[1],
-            'total_score': row[2],
-            'avg_score': round(avg_score, 1),
-            'updated_at': row[3]
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            min-height: 100vh;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
         }
-    return {'total_players': 0, 'total_games': 0, 'total_score': 0, 'avg_score': 0}
-
-# ========== КОМАНДЫ БОТА ==========
-async def start(update: Update, context: CallbackContext):
-    """Команда /start"""
-    user = update.effective_user
-    
-    # Сохраняем пользователя
-    save_user({
-        'id': user.id,
-        'username': user.username,
-        'first_name': user.first_name,
-        'last_name': user.last_name,
-        'photo_url': user.photo_url if hasattr(user, 'photo_url') else None
-    })
-    
-    # Создаем клавиатуру с кнопкой игры
-    keyboard = [
-        [InlineKeyboardButton("🎮 ИГРАТЬ", web_app={'url': WEB_APP_URL})],
-        [InlineKeyboardButton("📊 Моя статистика", callback_data='mystats'),
-         InlineKeyboardButton("🏆 Топ игроков", callback_data='top')],
-        [InlineKeyboardButton("📈 Глобальная статистика", callback_data='global'),
-         InlineKeyboardButton("❓ Помощь", callback_data='help')]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    welcome_text = f"""
-    👋 Привет, {user.first_name}!
-
-    🍪 **Добро пожаловать в игру "Печеньки и Бомбы"!** 💣
-
-    🎮 **Как играть:**
-    1. Нажми кнопку "🎮 ИГРАТЬ"
-    2. Игра откроется прямо в Telegram
-    3. Кликай на клетки и находи печеньки
-    4. Избегай бомб!
-
-    🏆 **Доступно до 24 бомб!** Больше бомб = больше очков!
-
-    Удачи! 🚀
-    """
-    
-    await update.message.reply_text(
-        welcome_text,
-        reply_markup=reply_markup,
-        parse_mode=ParseMode.MARKDOWN
-    )
-
-async def stats_command(update: Update, context: CallbackContext):
-    """Команда /stats"""
-    user = update.effective_user
-    stats = get_user_stats(user.id)
-    
-    text = f"""
-    📊 **Статистика игрока {user.first_name}:**
-
-    🏆 **Лучший счет:** {stats['best_score']} очков
-    📊 **Место в рейтинге:** #{stats['rank']}
-    🎮 **Всего игр:** {stats['total_games']}
-    ⭐ **Средний счет:** {stats['avg_score']}
-    📈 **Всего очков:** {stats['total_score']}
-    📅 **Дней игры:** {stats['days_played']}
-    
-    Хочешь улучшить результат? Жми "🎮 ИГРАТЬ"! 💪
-    """
-    
-    await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
-
-async def top_command(update: Update, context: CallbackContext):
-    """Команда /top - топ игроков"""
-    # Показываем inline клавиатуру для выбора типа топа
-    keyboard = [
-        [InlineKeyboardButton("🏆 Общий топ", callback_data='top_all')],
-        [InlineKeyboardButton("🔥 Топ за 7 дней", callback_data='top_7')],
-        [InlineKeyboardButton("⚡ Топ за 1 день", callback_data='top_1')],
-        [InlineKeyboardButton("📊 Моя статистика", callback_data='mystats')]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    await update.message.reply_text(
-        "🎮 **Выбери тип рейтинга:**",
-        reply_markup=reply_markup,
-        parse_mode=ParseMode.MARKDOWN
-    )
-
-async def show_top(update: Update, context: CallbackContext, days=None):
-    """Показываем топ игроков"""
-    query = update.callback_query
-    await query.answer()
-    
-    if days == 7:
-        top_players = get_leaderboard(10, days=7)
-        title = "🏆 **ТОП-10 ИГРОКОВ (7 дней):**"
-    elif days == 1:
-        top_players = get_leaderboard(10, days=1)
-        title = "🏆 **ТОП-10 ИГРОКОВ (1 день):**"
-    else:
-        top_players = get_leaderboard(10)
-        title = "🏆 **ТОП-10 ИГРОКОВ:**"
-    
-    if not top_players:
-        await query.edit_message_text(
-            "🏆 Пока никто не играл! Будь первым! 🚀",
-            parse_mode=ParseMode.MARKDOWN
-        )
-        return
-    
-    text = f"{title}\n\n"
-    
-    medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
-    
-    for i, player in enumerate(top_players):
-        if i < 10:
-            medal = medals[i]
-        else:
-            medal = f"{i+1}."
         
-        username = f"@{player['username']}" if player['username'] else player['first_name']
-        text += f"{medal} **{username}**\n"
-        text += f"   🏆 {player['score']} очков"
-        text += f" | 🎮 {player['games']} игр"
-        text += f" | ⭐ {player['avg_score']}\n\n"
-    
-    # Добавляем кнопки для других топов
-    keyboard = []
-    if days != 7:
-        keyboard.append([InlineKeyboardButton("🔥 Топ за 7 дней", callback_data='top_7')])
-    if days != 1:
-        keyboard.append([InlineKeyboardButton("⚡ Топ за 1 день", callback_data='top_1')])
-    if days is not None:
-        keyboard.append([InlineKeyboardButton("🏆 Общий топ", callback_data='top_all')])
-    keyboard.append([InlineKeyboardButton("📊 Моя статистика", callback_data='mystats')])
-    
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    await query.edit_message_text(
-        text,
-        reply_markup=reply_markup,
-        parse_mode=ParseMode.MARKDOWN
-    )
-
-async def global_stats_command(update: Update, context: CallbackContext):
-    """Команда /global - глобальная статистика"""
-    query = update.callback_query
-    if query:
-        await query.answer()
-    
-    stats = get_global_stats()
-    
-    text = f"""
-    📈 **ГЛОБАЛЬНАЯ СТАТИСТИКА ИГРЫ:**
-
-    👥 **Всего игроков:** {stats['total_players']}
-    🎮 **Всего сыграно игр:** {stats['total_games']}
-    🏆 **Всего набрано очков:** {stats['total_score']}
-    ⭐ **Средний счет:** {stats['avg_score']}
-    
-    🕐 **Обновлено:** {stats['updated_at'][:19] if stats['updated_at'] else 'только что'}
-    
-    🎯 **Присоединяйся к игре и стань лучшим!** 🚀
-    """
-    
-    if query:
-        await query.edit_message_text(text, parse_mode=ParseMode.MARKDOWN)
-    else:
-        await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
-
-async def help_command(update: Update, context: CallbackContext):
-    """Команда /help"""
-    query = update.callback_query
-    if query:
-        await query.answer()
-    
-    help_text = """
-    🆘 **Правила игры "Печеньки и Бомбы"**
-
-    🎯 **Цель:** Найти все печеньки, избегая бомб!
-
-    📖 **Правила:**
-    • Игровое поле: 5x5 клеток
-    • 🍪 Печенька = +20 очков
-    • 💣 Бомба = конец игры
-    • Найди ВСЕ печеньки для победы!
-    • **Можно выбрать до 24 бомб!**
-
-    🎮 **Как играть:**
-    1. Нажми "🎮 ИГРАТЬ"
-    2. Выбери количество бомб (1-24)
-    3. Кликай на клетки чтобы открывать их
-    4. Больше бомб = больше очков за печеньку!
-
-    📊 **Статистика:**
-    • Все результаты сохраняются
-    • /top - топ игроков
-    • /stats - твоя статистика
-    • /global - глобальная статистика
-
-    🏆 **Особенности:**
-    • Таблица лидеров обновляется в реальном времени
-    • Можно поделиться своим рекордом
-    • Доступны разные типы рейтингов
-
-    Удачи! 🍀
-    """
-    
-    if query:
-        await query.edit_message_text(help_text, parse_mode=ParseMode.MARKDOWN)
-    else:
-        await update.message.reply_text(help_text, parse_mode=ParseMode.MARKDOWN)
-
-async def handle_web_app_data(update: Update, context: CallbackContext):
-    """Обрабатываем данные из веб-приложения"""
-    try:
-        if update.message and update.message.web_app_data:
-            user = update.effective_user
-            data = update.message.web_app_data.data
+        body.dark-theme {
+            background: linear-gradient(135deg, var(--bg-dark), #16213e);
+            color: var(--text-dark);
+        }
+        
+        body.light-theme {
+            background: linear-gradient(135deg, var(--bg-light), #d0d7e0);
+            color: var(--text-light);
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        .tg-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .dark-theme .tg-header {
+            background: rgba(45, 45, 68, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .light-theme .tg-header {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--accent);
+        }
+        
+        .default-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 18px;
+            border: 2px solid var(--accent);
+        }
+        
+        .tg-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .screen-container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .dark-theme .screen-container {
+            background: rgba(45, 45, 68, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        .light-theme .screen-container {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 25px;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        h2 {
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            color: var(--accent);
+        }
+        
+        h3 {
+            font-size: 1.4em;
+            margin-bottom: 15px;
+        }
+        
+        .game-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin: 25px 0;
+            padding: 20px;
+            border-radius: 15px;
+        }
+        
+        .dark-theme .game-stats {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .light-theme .game-stats {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .score-value {
+            color: var(--success);
+        }
+        
+        .time-value {
+            color: var(--warning);
+        }
+        
+        .level-value {
+            color: var(--accent);
+        }
+        
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+            margin: 30px 0;
+            padding: 20px;
+            border-radius: 15px;
+        }
+        
+        .dark-theme .game-board {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .light-theme .game-board {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        
+        .cell {
+            aspect-ratio: 1;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .dark-theme .cell:not(.revealed) {
+            background: var(--cell-dark);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        .light-theme .cell:not(.revealed) {
+            background: var(--cell-light);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .cell:hover:not(.revealed) {
+            transform: scale(1.05);
+        }
+        
+        .cell:active:not(.revealed) {
+            transform: scale(0.95);
+        }
+        
+        .cell.revealed {
+            cursor: default;
+            transform: scale(1);
+        }
+        
+        .cell.cookie {
+            background: rgba(139, 195, 74, 0.3);
+            border: 2px solid var(--cookie-color);
+        }
+        
+        .cell.bomb {
+            background: rgba(244, 67, 54, 0.3);
+            border: 2px solid var(--bomb-color);
+            animation: pulse 0.5s ease-in-out;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .btn {
+            padding: 14px 28px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 136, 204, 0.3);
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: inherit;
+        }
+        
+        .dark-theme .btn-secondary {
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .light-theme .btn-secondary {
+            border: 1px solid rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+        }
+        
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+        
+        .leaderboard-container {
+            max-height: 400px;
+            overflow-y: auto;
+            margin: 25px 0;
+            padding: 20px;
+            border-radius: 15px;
+        }
+        
+        .dark-theme .leaderboard-container {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .light-theme .leaderboard-container {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        
+        .player-row {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        .dark-theme .player-row {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .light-theme .player-row {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        
+        .player-row:hover {
+            transform: translateX(5px);
+        }
+        
+        .player-row.me {
+            background: rgba(0, 136, 204, 0.2);
+            border-left: 4px solid var(--accent);
+        }
+        
+        .player-rank {
+            width: 40px;
+            font-size: 1.3em;
+            font-weight: bold;
+            color: var(--accent);
+        }
+        
+        .player-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            margin-right: 15px;
+            object-fit: cover;
+            border: 3px solid var(--accent);
+        }
+        
+        .default-player-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 20px;
+            margin-right: 15px;
+            border: 3px solid var(--accent);
+        }
+        
+        .player-info {
+            flex: 1;
+            text-align: left;
+        }
+        
+        .player-name {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 4px;
+        }
+        
+        .player-score {
+            color: var(--success);
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+        
+        .player-stats {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin-top: 3px;
+        }
+        
+        .settings-container {
+            max-width: 450px;
+            margin: 0 auto;
+        }
+        
+        .settings-option {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 15px;
+            transition: all 0.3s ease;
+        }
+        
+        .dark-theme .settings-option {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .light-theme .settings-option {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        
+        .settings-option:hover {
+            transform: translateX(5px);
+        }
+        
+        .theme-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 30px;
+        }
+        
+        .theme-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background-color: var(--accent);
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(30px);
+        }
+        
+        .bomb-slider-container {
+            padding: 25px;
+            margin: 20px 0;
+            border-radius: 15px;
+        }
+        
+        .dark-theme .bomb-slider-container {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .light-theme .bomb-slider-container {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        
+        .slider-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: var(--danger);
+            margin: 15px 0;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 10px;
+            -webkit-appearance: none;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 5px;
+            outline: none;
+        }
+        
+        .dark-theme input[type="range"] {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            border: 3px solid white;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        .alert {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 30px;
+            border-radius: 12px;
+            z-index: 1000;
+            animation: slideDown 0.3s ease;
+            max-width: 90%;
+            text-align: center;
+            font-weight: bold;
+        }
+        
+        @keyframes slideDown {
+            from {
+                top: -100px;
+                opacity: 0;
+            }
+            to {
+                top: 20px;
+                opacity: 1;
+            }
+        }
+        
+        .alert-success {
+            background: var(--success);
+            color: white;
+        }
+        
+        .alert-danger {
+            background: var(--danger);
+            color: white;
+        }
+        
+        .alert-info {
+            background: var(--accent);
+            color: white;
+        }
+        
+        @media (max-width: 600px) {
+            .game-board {
+                grid-template-columns: repeat(5, 1fr);
+                gap: 8px;
+                padding: 10px;
+            }
             
-            logger.info(f"📨 Данные от {user.first_name} ({user.id})")
+            .cell {
+                font-size: 20px;
+            }
             
-            try:
-                game_data = json.loads(data)
-            except json.JSONDecodeError as e:
-                logger.error(f"❌ Ошибка JSON: {e}")
-                return
+            h1 {
+                font-size: 2em;
+            }
             
-            # Сохраняем результат
-            save_game_result(user.id, game_data)
+            .btn {
+                padding: 12px 20px;
+                font-size: 14px;
+            }
             
-            # Отправляем ответ
-            score = game_data.get('score', 0)
-            game_won = game_data.get('gameWon', False)
-            bombs = game_data.get('bombs', 5)
+            .player-avatar, .default-player-avatar {
+                width: 40px;
+                height: 40px;
+                font-size: 16px;
+            }
+        }
+        
+        @keyframes cookieSpin {
+            0% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(180deg) scale(1.2); }
+            100% { transform: rotate(360deg) scale(1); }
+        }
+        
+        @keyframes bombExplode {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.3); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .cookie-animation {
+            animation: cookieSpin 0.5s ease;
+        }
+        
+        .bomb-animation {
+            animation: bombExplode 0.5s ease;
+        }
+    </style>
+</head>
+<body class="dark-theme">
+    <div class="tg-header hidden" id="tgHeader">
+        <div class="user-info">
+            <div class="default-avatar" id="userAvatar">U</div>
+            <div>
+                <div id="username">Игрок</div>
+                <div style="font-size: 12px; opacity: 0.8;">ID: <span id="userid">---</span></div>
+            </div>
+        </div>
+        <div class="tg-buttons">
+            <button class="btn btn-secondary" id="shareBtn" title="Поделиться" style="display: none;">
+                <span style="font-size: 18px;">📤</span>
+            </button>
+            <button class="btn btn-secondary" id="closeBtn" title="Закрыть" style="display: none;">
+                <span style="font-size: 18px;">❌</span>
+            </button>
+        </div>
+    </div>
+    
+    <div class="screen-container" id="menuScreen">
+        <h1>🍪 Печеньки и Бомбы 💣</h1>
+        
+        <div class="user-info" style="justify-content: center; margin-bottom: 25px;">
+            <div class="default-avatar" id="menuAvatar">U</div>
+            <div style="text-align: left;">
+                <div id="menuUsername">Игрок</div>
+                <div style="font-size: 14px; opacity: 0.8;">Лучший счет: <span id="bestScore">0</span></div>
+            </div>
+        </div>
+        
+        <div class="bomb-slider-container">
+            <h3>Количество бомб: <span id="bombCountDisplay">5</span></h3>
+            <div class="slider-value" id="sliderValue">5</div>
+            <input type="range" id="bombSlider" min="1" max="24" value="5">
+            <div style="display: flex; justify-content: space-between; margin-top: 10px;">
+                <span>1</span>
+                <span style="color: var(--danger)">💣 Бомбы</span>
+                <span>24</span>
+            </div>
+            <div style="margin-top: 15px; opacity: 0.8;">
+                Печенек: <span id="cookieCountDisplay">20</span>
+            </div>
+        </div>
+        
+        <div style="margin: 30px 0;">
+            <button class="btn btn-primary" id="startGameBtn" style="font-size: 18px; padding: 16px 40px;">
+                🎮 НАЧАТЬ ИГРУ
+            </button>
+        </div>
+        
+        <div style="margin: 20px 0;">
+            <button class="btn btn-secondary" id="topPlayersBtn">
+                🏆 ТОП ИГРОКОВ
+            </button>
+            <button class="btn btn-secondary" id="settingsBtn">
+                ⚙️ НАСТРОЙКИ
+            </button>
+        </div>
+        
+        <div style="margin-top: 30px; padding: 20px; border-radius: 15px; background: rgba(0,0,0,0.1);">
+            <h3 style="margin-bottom: 15px;">🎯 Правила игры</h3>
+            <p style="margin: 8px 0; font-size: 14px;">• Кликай на 🍪 — получаешь +20 очков</p>
+            <p style="margin: 8px 0; font-size: 14px;">• Избегай 💣 — игра заканчивается</p>
+            <p style="margin: 8px 0; font-size: 14px;">• Найди все печеньки чтобы выиграть</p>
+            <p style="margin: 8px 0; font-size: 14px;">• Больше бомб = больше очков за печеньку</p>
+            <p style="margin: 8px 0; font-size: 14px;">• Максимум 24 бомбы!</p>
+        </div>
+    </div>
+    
+    <div class="screen-container hidden" id="gameScreen">
+        <div class="game-stats">
+            <div class="stat-item">
+                <div class="stat-value score-value" id="currentScore">0</div>
+                <div>СЧЕТ</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value time-value" id="cookiesFound">0/20</div>
+                <div>ПЕЧЕНЬКИ</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value level-value" id="bombsLeft">5</div>
+                <div>БОМБЫ</div>
+            </div>
+        </div>
+        
+        <div class="game-board" id="gameBoard"></div>
+        
+        <div style="margin: 25px 0;">
+            <button class="btn btn-danger" id="restartGameBtn">
+                🔄 РЕСТАРТ
+            </button>
+            <button class="btn btn-secondary" id="backToMenuBtn">
+                ↩️ В МЕНЮ
+            </button>
+        </div>
+        
+        <div style="margin-top: 20px; padding: 15px; border-radius: 12px; background: rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-around;">
+                <div>
+                    <div style="font-size: 12px; opacity: 0.8;">Открыто клеток</div>
+                    <div style="font-weight: bold;" id="cellsOpened">0</div>
+                </div>
+                <div>
+                    <div style="font-size: 12px; opacity: 0.8;">Шанс на печеньку</div>
+                    <div style="font-weight: bold; color: var(--success)" id="cookieChance">100%</div>
+                </div>
+                <div>
+                    <div style="font-size: 12px; opacity: 0.8;">Множитель</div>
+                    <div style="font-weight: bold; color: var(--warning)" id="difficultyMultiplier">1.0x</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="screen-container hidden" id="topScreen">
+        <h2>🏆 ТОП ИГРОКОВ</h2>
+        
+        <div style="margin-bottom: 20px;">
+            <div style="display: inline-block; padding: 10px 20px; background: var(--accent); color: white; border-radius: 10px; margin: 10px;">
+                <div style="font-size: 12px;">ТВОЙ РЕКОРД</div>
+                <div style="font-size: 24px; font-weight: bold;" id="myBestScore">0</div>
+            </div>
+        </div>
+        
+        <div class="leaderboard-container">
+            <div class="leaderboard" id="leaderboard">
+                <div style="padding: 40px; text-align: center; opacity: 0.7;">
+                    Загрузка рейтинга...
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-top: 25px;">
+            <button class="btn btn-primary" id="backFromTopBtn">
+                ↩️ НАЗАД
+            </button>
+        </div>
+    </div>
+    
+    <div class="screen-container hidden" id="settingsScreen">
+        <h2>⚙️ НАСТРОЙКИ</h2>
+        
+        <div class="settings-container">
+            <div class="settings-option">
+                <div>
+                    <div style="font-weight: bold;">🌙 Тема</div>
+                    <div style="font-size: 14px; opacity: 0.8;">Светлая или темная тема</div>
+                </div>
+                <label class="theme-switch">
+                    <input type="checkbox" id="themeToggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
             
-            # Получаем статистику для сравнения
-            stats = get_user_stats(user.id)
+            <div class="settings-option">
+                <div>
+                    <div style="font-weight: bold;">🔊 Звуки</div>
+                    <div style="font-size: 14px; opacity: 0.8;">Включить звуковые эффекты</div>
+                </div>
+                <label class="theme-switch">
+                    <input type="checkbox" id="soundToggle" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
             
-            if game_won:
-                if score > stats['best_score']:
-                    message = f"""
-                    🎉 **НОВЫЙ РЕКОРД! ПОБЕДА!** 🏆
-
-                    🏆 **Твой счет:** {score} очков
-                    💣 **Бомб:** {bombs}
-                    📈 **Предыдущий рекорд:** {stats['best_score']}
-                    🥇 **Улучшение:** +{score - stats['best_score']}
-
-                    Отличный результат! Ты в топе! 🚀
-                    """
-                else:
-                    message = f"""
-                    🎉 **ПОБЕДА!**
-
-                    🏆 **Твой счет:** {score} очков
-                    💣 **Бомб:** {bombs}
-                    📊 **Лучший счет:** {stats['best_score']}
-
-                    Хорошая игра! 💪
-                    """
-            else:
-                message = f"""
-                💥 **Игра окончена**
-
-                🏆 **Твой счет:** {score} очков
-                💣 **Бомб:** {bombs}
-                📊 **Лучший счет:** {stats['best_score']}
-
-                Не расстраивайся! Попробуй еще раз! 🍀
-                """
+            <div class="settings-option">
+                <div>
+                    <div style="font-weight: bold;">📊 Статистика</div>
+                    <div style="font-size: 14px; opacity: 0.8;">Сбросить статистику игры</div>
+                </div>
+                <button class="btn btn-danger" id="resetStatsBtn" style="padding: 8px 16px;">
+                    СБРОС
+                </button>
+            </div>
             
-            # Создаем клавиатуру для шаринга
-            keyboard = [
-                [InlineKeyboardButton("📤 Поделиться рекордом", callback_data=f'share_{score}')],
-                [InlineKeyboardButton("🎮 Играть снова", web_app={'url': WEB_APP_URL})],
-                [InlineKeyboardButton("🏆 Топ игроков", callback_data='top')]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
+            <div class="settings-option">
+                <div>
+                    <div style="font-weight: bold;">ℹ️ О приложении</div>
+                    <div style="font-size: 14px; opacity: 0.8;">Версия 1.1.0</div>
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-top: 40px;">
+            <button class="btn btn-primary" id="saveSettingsBtn">
+                💾 СОХРАНИТЬ
+            </button>
+            <button class="btn btn-secondary" id="cancelSettingsBtn">
+                ❌ ОТМЕНА
+            </button>
+        </div>
+    </div>
+    
+    <div class="alert hidden" id="alertMessage"></div>
+    
+    <script>
+        // ========== КОНСТАНТЫ ==========
+        const GRID_SIZE = 5;
+        const COOKIE_POINTS = 20;
+        const BOMB_MULTIPLIER = 10;
+        const WIN_BONUS = 300;
+        const MAX_BOMBS = 24;
+        
+        // ========== ПЕРЕМЕННЫЕ ==========
+        let gameState = {
+            grid: [],
+            revealed: [],
+            bombs: 5,
+            score: 0,
+            cookiesFound: 0,
+            cellsOpened: 0,
+            gameOver: false,
+            gameWon: false,
+            maxCookies: 0,
+            totalCells: GRID_SIZE * GRID_SIZE,
+            difficultyMultiplier: 1.0
+        };
+        
+        let currentScreen = 'menu';
+        let currentTheme = 'dark';
+        let soundEnabled = true;
+        let userData = {};
+        let leaderboard = [];
+        let bestScore = 0;
+        
+        // ========== TELEGRAM MINI APP ==========
+        const tg = window.Telegram?.WebApp;
+        
+        function initTelegram() {
+            if (tg) {
+                console.log("✅ Telegram WebApp обнаружен");
+                tg.ready();
+                tg.expand();
+                
+                // Показываем Telegram хедер
+                document.getElementById('tgHeader').classList.remove('hidden');
+                
+                // Получаем данные пользователя
+                const user = tg.initDataUnsafe?.user;
+                if (user) {
+                    userData = {
+                        id: user.id.toString(),
+                        firstName: user.first_name || 'Игрок',
+                        username: user.username || '',
+                        photoUrl: user.photo_url || ''
+                    };
+                    
+                    console.log("👤 Пользователь:", userData);
+                    
+                    // Обновляем UI
+                    document.getElementById('username').textContent = userData.firstName;
+                    document.getElementById('userid').textContent = userData.id;
+                    document.getElementById('menuUsername').textContent = userData.firstName;
+                    
+                    // Аватар
+                    updateAvatar(userData);
+                    
+                    // Показываем кнопки Telegram
+                    document.getElementById('shareBtn').style.display = 'block';
+                    document.getElementById('closeBtn').style.display = 'block';
+                    
+                    // Кнопка "Поделиться"
+                    document.getElementById('shareBtn').onclick = () => {
+                        shareScore();
+                    };
+                    
+                    // Кнопка "Закрыть"
+                    document.getElementById('closeBtn').onclick = () => {
+                        if (tg && tg.close) {
+                            tg.close();
+                        }
+                    };
+                    
+                    // Загружаем статистику пользователя
+                    loadUserStats();
+                    
+                } else {
+                    console.log("⚠️ Данные пользователя не получены");
+                    userData = { id: 'unknown', firstName: 'Игрок' };
+                }
+                
+            } else {
+                console.log("🌐 Браузерная версия");
+                userData = {
+                    id: 'browser_' + Math.random().toString(36).substr(2, 9),
+                    firstName: 'Игрок',
+                    username: '',
+                    photoUrl: ''
+                };
+                loadUserStats();
+            }
+        }
+        
+        function updateAvatar(user) {
+            const avatarElement = document.getElementById('userAvatar');
+            const menuAvatar = document.getElementById('menuAvatar');
             
-            await update.message.reply_text(
-                message,
-                reply_markup=reply_markup,
-                parse_mode=ParseMode.MARKDOWN
-            )
+            if (user.photoUrl) {
+                avatarElement.innerHTML = `<img src="${user.photoUrl}" class="avatar" alt="${user.firstName}">`;
+                menuAvatar.innerHTML = `<img src="${user.photoUrl}" class="avatar" alt="${user.firstName}">`;
+            } else {
+                const initials = user.firstName ? user.firstName[0].toUpperCase() : 'U';
+                avatarElement.textContent = initials;
+                menuAvatar.textContent = initials;
+            }
+        }
+        
+        function shareScore() {
+            if (!tg) {
+                showAlert("Функция доступна только в Telegram", 'info');
+                return;
+            }
             
-    except Exception as e:
-        logger.error(f"❌ Ошибка обработки web app данных: {e}")
-
-async def button_callback(update: Update, context: CallbackContext):
-    """Обработка inline кнопок"""
-    query = update.callback_query
-    await query.answer()
-    
-    if query.data == 'mystats':
-        user = query.from_user
-        stats = get_user_stats(user.id)
-        text = f"""
-        📊 **Твоя статистика:**
-
-        🏆 **Лучший счет:** {stats['best_score']}
-        🥇 **Место в рейтинге:** #{stats['rank']}
-        🎮 **Игр:** {stats['total_games']}
-        ⭐ **Средний:** {stats['avg_score']}
+            const gameUrl = "https://protective12196.github.io/cookie-game/index.html";
+            const shareText = `🍪💣 Мой рекорд в игре "Печеньки и Бомбы": ${bestScore} очков!\n\n🎮 Попробуй побить мой результат!\n${gameUrl}`;
+            
+            if (tg.shareURL) {
+                tg.shareURL(gameUrl, shareText);
+            } else {
+                // Альтернативный способ
+                const shareData = {
+                    title: 'Печеньки и Бомбы',
+                    text: shareText,
+                    url: gameUrl
+                };
+                
+                if (navigator.share && navigator.canShare(shareData)) {
+                    navigator.share(shareData);
+                } else {
+                    // Копируем в буфер обмена
+                    navigator.clipboard.writeText(shareText).then(() => {
+                        showAlert("Текст скопирован! Поделись с друзьями!", 'success');
+                    });
+                }
+            }
+        }
         
-        Продолжай в том же духе! 💪
-        """
-        await query.edit_message_text(text, parse_mode=ParseMode.MARKDOWN)
+        // ========== ИГРОВАЯ ЛОГИКА ==========
+        function initGame() {
+            const bombs = parseInt(document.getElementById('bombSlider').value);
+            gameState = {
+                grid: [],
+                revealed: [],
+                bombs: bombs,
+                score: 0,
+                cookiesFound: 0,
+                cellsOpened: 0,
+                gameOver: false,
+                gameWon: false,
+                maxCookies: GRID_SIZE * GRID_SIZE - bombs,
+                totalCells: GRID_SIZE * GRID_SIZE,
+                difficultyMultiplier: 1.0 + (bombs / 30.0)
+            };
+            
+            // Создаем пустую сетку
+            for (let i = 0; i < GRID_SIZE; i++) {
+                gameState.grid[i] = [];
+                gameState.revealed[i] = [];
+                for (let j = 0; j < GRID_SIZE; j++) {
+                    gameState.grid[i][j] = 0;
+                    gameState.revealed[i][j] = false;
+                }
+            }
+            
+            // Размещаем бомбы
+            let bombsPlaced = 0;
+            while (bombsPlaced < bombs) {
+                const x = Math.floor(Math.random() * GRID_SIZE);
+                const y = Math.floor(Math.random() * GRID_SIZE);
+                
+                if (gameState.grid[y][x] === 0) {
+                    gameState.grid[y][x] = -1;
+                    bombsPlaced++;
+                }
+            }
+            
+            // Заполняем остальное печеньками
+            for (let i = 0; i < GRID_SIZE; i++) {
+                for (let j = 0; j < GRID_SIZE; j++) {
+                    if (gameState.grid[i][j] === 0) {
+                        gameState.grid[i][j] = 1;
+                    }
+                }
+            }
+            
+            updateGameUI();
+            renderGameBoard();
+        }
         
-    elif query.data == 'top':
-        await top_command(update, context)
+        function renderGameBoard() {
+            const board = document.getElementById('gameBoard');
+            board.innerHTML = '';
+            
+            for (let i = 0; i < GRID_SIZE; i++) {
+                for (let j = 0; j < GRID_SIZE; j++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.row = i;
+                    cell.dataset.col = j;
+                    
+                    if (gameState.revealed[i][j]) {
+                        cell.classList.add('revealed');
+                        if (gameState.grid[i][j] === 1) {
+                            cell.classList.add('cookie');
+                            cell.innerHTML = '🍪';
+                        } else if (gameState.grid[i][j] === -1) {
+                            cell.classList.add('bomb');
+                            cell.innerHTML = '💣';
+                        }
+                    }
+                    
+                    cell.onclick = () => handleCellClick(i, j);
+                    board.appendChild(cell);
+                }
+            }
+        }
         
-    elif query.data == 'top_all':
-        await show_top(update, context)
+        function handleCellClick(row, col) {
+            if (gameState.gameOver || gameState.gameWon || gameState.revealed[row][col]) {
+                return;
+            }
+            
+            gameState.revealed[row][col] = true;
+            gameState.cellsOpened++;
+            
+            const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+            cell.classList.add('revealed');
+            
+            if (gameState.grid[row][col] === 1) {
+                // Печенька
+                cell.classList.add('cookie');
+                cell.classList.add('cookie-animation');
+                cell.innerHTML = '🍪';
+                
+                gameState.cookiesFound++;
+                
+                // Расчет очков
+                const basePoints = COOKIE_POINTS;
+                const bombBonus = gameState.bombs * BOMB_MULTIPLIER;
+                let pointsForCookie = Math.floor(basePoints + (bombBonus / gameState.maxCookies));
+                pointsForCookie = Math.floor(pointsForCookie * gameState.difficultyMultiplier);
+                
+                gameState.score += Math.max(1, pointsForCookie);
+                
+                // Проверка победы
+                if (gameState.cookiesFound === gameState.maxCookies) {
+                    gameState.gameWon = true;
+                    const winBonus = Math.floor(WIN_BONUS * gameState.difficultyMultiplier);
+                    const bombCompletionBonus = gameState.bombs * BOMB_MULTIPLIER * 2;
+                    gameState.score += winBonus + bombCompletionBonus;
+                    
+                    showAlert('🎉 ПОБЕДА! Вы нашли все печеньки!', 'success');
+                    saveGameResult();
+                }
+                
+            } else if (gameState.grid[row][col] === -1) {
+                // Бомба
+                cell.classList.add('bomb');
+                cell.classList.add('bomb-animation');
+                cell.innerHTML = '💣';
+                
+                gameState.gameOver = true;
+                
+                // Открываем все клетки
+                for (let i = 0; i < GRID_SIZE; i++) {
+                    for (let j = 0; j < GRID_SIZE; j++) {
+                        gameState.revealed[i][j] = true;
+                    }
+                }
+                
+                showAlert('💥 БОМБА! Игра окончена!', 'danger');
+                saveGameResult();
+            }
+            
+            updateGameUI();
+            renderGameBoard();
+        }
         
-    elif query.data == 'top_7':
-        await show_top(update, context, days=7)
+        function updateGameUI() {
+            document.getElementById('currentScore').textContent = gameState.score;
+            document.getElementById('cookiesFound').textContent = `${gameState.cookiesFound}/${gameState.maxCookies}`;
+            
+            // Считаем сколько бомб осталось
+            let bombsLeft = gameState.bombs;
+            for (let i = 0; i < GRID_SIZE; i++) {
+                for (let j = 0; j < GRID_SIZE; j++) {
+                    if (!gameState.revealed[i][j] && gameState.grid[i][j] === -1) {
+                        bombsLeft--;
+                    }
+                }
+            }
+            document.getElementById('bombsLeft').textContent = bombsLeft;
+            
+            // Статистика
+            document.getElementById('cellsOpened').textContent = gameState.cellsOpened;
+            
+            // Шанс на печеньку
+            const unrevealed = gameState.totalCells - gameState.cellsOpened;
+            if (unrevealed > 0) {
+                const cookiesLeft = gameState.maxCookies - gameState.cookiesFound;
+                const chance = ((cookiesLeft / unrevealed) * 100).toFixed(1);
+                document.getElementById('cookieChance').textContent = `${chance}%`;
+            }
+            
+            document.getElementById('difficultyMultiplier').textContent = `${gameState.difficultyMultiplier.toFixed(1)}x`;
+        }
         
-    elif query.data == 'top_1':
-        await show_top(update, context, days=1)
+        // ========== СТАТИСТИКА И ЛИДЕРБОРД ==========
+        function loadUserStats() {
+            const stats = JSON.parse(localStorage.getItem('cookies_bombs_stats') || '{}');
+            const userStats = stats[userData.id] || { bestScore: 0 };
+            
+            bestScore = userStats.bestScore || 0;
+            document.getElementById('bestScore').textContent = bestScore;
+            document.getElementById('myBestScore').textContent = bestScore;
+            
+            // Загружаем лидерборд
+            loadLeaderboard();
+        }
         
-    elif query.data == 'global':
-        await global_stats_command(update, context)
+        function loadLeaderboard() {
+            const allStats = JSON.parse(localStorage.getItem('cookies_bombs_stats') || '{}');
+            leaderboard = [];
+            
+            // Собираем статистику всех игроков
+            for (const userId in allStats) {
+                const playerStats = allStats[userId];
+                if (playerStats && playerStats.bestScore > 0) {
+                    leaderboard.push({
+                        id: userId,
+                        firstName: playerStats.firstName || 'Игрок',
+                        username: playerStats.username || '',
+                        score: playerStats.bestScore || 0,
+                        games: playerStats.gamesPlayed || 1
+                    });
+                }
+            }
+            
+            // Сортируем по очкам
+            leaderboard.sort((a, b) => b.score - a.score);
+            
+            // Обновляем UI лидерборда
+            updateLeaderboardUI();
+        }
         
-    elif query.data == 'help':
-        await help_command(update, context)
+        function updateLeaderboardUI() {
+            const leaderboardElement = document.getElementById('leaderboard');
+            
+            if (leaderboard.length === 0) {
+                leaderboardElement.innerHTML = `
+                    <div style="padding: 40px; text-align: center; opacity: 0.7;">
+                        Пока никто не играл 😢<br>
+                        <small>Будь первым в рейтинге!</small>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            
+            leaderboard.forEach((player, index) => {
+                const isMe = player.id === userData.id;
+                const rank = index + 1;
+                const rankClass = rank <= 3 ? `style="color: ${rank === 1 ? '#FFD700' : rank === 2 ? '#C0C0C0' : '#CD7F32'}"` : '';
+                
+                const avatar = player.username 
+                    ? `<div class="default-player-avatar">${player.firstName[0].toUpperCase()}</div>`
+                    : `<div class="default-player-avatar">${player.firstName ? player.firstName[0].toUpperCase() : 'U'}</div>`;
+                
+                html += `
+                    <div class="player-row ${isMe ? 'me' : ''}">
+                        <div class="player-rank" ${rankClass}>${rank}</div>
+                        ${avatar}
+                        <div class="player-info">
+                            <div class="player-name">
+                                ${player.firstName} ${isMe ? '(Вы)' : ''}
+                                ${player.username ? `<br><small>@${player.username}</small>` : ''}
+                            </div>
+                            <div class="player-score">${player.score} очков</div>
+                            <div class="player-stats">Игр: ${player.games || 1}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            leaderboardElement.innerHTML = html;
+        }
         
-    elif query.data.startswith('share_'):
-        score = query.data.split('_')[1]
-        user = query.from_user
-        game_url = WEB_APP_URL
+        function saveGameResult() {
+            if (!userData.id) return;
+            
+            // Загружаем текущую статистику
+            const allStats = JSON.parse(localStorage.getItem('cookies_bombs_stats') || '{}');
+            const userStats = allStats[userData.id] || {
+                firstName: userData.firstName,
+                username: userData.username,
+                bestScore: 0,
+                gamesPlayed: 0,
+                totalScore: 0
+            };
+            
+            // Обновляем статистику
+            userStats.gamesPlayed = (userStats.gamesPlayed || 0) + 1;
+            userStats.totalScore = (userStats.totalScore || 0) + gameState.score;
+            
+            if (gameState.score > userStats.bestScore) {
+                userStats.bestScore = gameState.score;
+                bestScore = gameState.score;
+                document.getElementById('bestScore').textContent = bestScore;
+                document.getElementById('myBestScore').textContent = bestScore;
+            }
+            
+            // Сохраняем
+            allStats[userData.id] = userStats;
+            localStorage.setItem('cookies_bombs_stats', JSON.stringify(allStats));
+            
+            // Обновляем лидерборд
+            loadLeaderboard();
+            
+            // Отправляем данные в бота (если в Telegram)
+            if (tg && userData.id !== 'unknown') {
+                try {
+                    const data = {
+                        action: 'game_result',
+                        userId: userData.id,
+                        username: userData.username,
+                        firstName: userData.firstName,
+                        score: gameState.score,
+                        bombs: gameState.bombs,
+                        cookiesFound: gameState.cookiesFound,
+                        maxCookies: gameState.maxCookies,
+                        gameWon: gameState.gameWon,
+                        timestamp: Date.now()
+                    };
+                    
+                    tg.sendData(JSON.stringify(data));
+                    console.log("📨 Данные отправлены боту");
+                } catch (e) {
+                    console.log("⚠️ Не удалось отправить данные боту:", e);
+                }
+            }
+        }
         
-        share_text = f"""
-        🍪💣 *Мой рекорд в игре "Печеньки и Бомбы": {score} очков!*
+        // ========== НАСТРОЙКИ ==========
+        function toggleTheme() {
+            if (currentTheme === 'dark') {
+                document.body.classList.remove('dark-theme');
+                document.body.classList.add('light-theme');
+                currentTheme = 'light';
+            } else {
+                document.body.classList.remove('light-theme');
+                document.body.classList.add('dark-theme');
+                currentTheme = 'dark';
+            }
+            
+            localStorage.setItem('game_theme', currentTheme);
+        }
         
-        🎮 *Попробуй побить мой результат!*
-        {game_url}
+        function loadSettings() {
+            const savedTheme = localStorage.getItem('game_theme');
+            const savedSound = localStorage.getItem('game_sound');
+            
+            if (savedTheme === 'light') {
+                document.getElementById('themeToggle').checked = true;
+                toggleTheme();
+            }
+            
+            if (savedSound === 'false') {
+                document.getElementById('soundToggle').checked = false;
+                soundEnabled = false;
+            }
+        }
         
-        #ПеченькиИБомбы #TelegramGame #Игра
-        """
+        function saveSettings() {
+            localStorage.setItem('game_theme', currentTheme);
+            localStorage.setItem('game_sound', soundEnabled.toString());
+            showAlert('Настройки сохранены!', 'success');
+            showScreen('menu');
+        }
         
-        # Предлагаем поделиться
-        keyboard = [
-            [InlineKeyboardButton("📤 Поделиться в Telegram", 
-                                 url=f"https://t.me/share/url?url={game_url}&text=🍪💣%20Мой%20рекорд%20в%20игре%20Печеньки%20и%20Бомбы:%20{score}%20очков!%0A%0A🎮%20Попробуй%20побить%20мой%20результат!")],
-            [InlineKeyboardButton("🎮 Играть снова", web_app={'url': WEB_APP_URL})]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
+        function resetStats() {
+            if (confirm('Вы уверены, что хотите сбросить всю статистику?')) {
+                localStorage.removeItem('cookies_bombs_stats');
+                bestScore = 0;
+                document.getElementById('bestScore').textContent = '0';
+                document.getElementById('myBestScore').textContent = '0';
+                loadLeaderboard();
+                showAlert('Статистика сброшена!', 'success');
+            }
+        }
         
-        await query.edit_message_text(
-            "📤 **Поделись своим рекордом с друзьями!**\n\n" + share_text,
-            reply_markup=reply_markup,
-            parse_mode=ParseMode.MARKDOWN
-        )
-
-# ========== ЗАПУСК БОТА ==========
-def main():
-    """Основная функция запуска бота"""
-    logger.info("🚀 Запуск бота...")
-    
-    # Инициализируем базу данных
-    init_db()
-    
-    # Создаем приложение бота
-    application = Application.builder().token(TOKEN).build()
-    
-    # Добавляем обработчики команд
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("stats", stats_command))
-    application.add_handler(CommandHandler("top", top_command))
-    application.add_handler(CommandHandler("global", global_stats_command))
-    application.add_handler(CommandHandler("help", help_command))
-    
-    # Обработчик данных из веб-приложения
-    application.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, handle_web_app_data))
-    
-    # Обработчик inline кнопок
-    application.add_handler(CallbackQueryHandler(button_callback))
-    
-    # Запускаем бота
-    logger.info("✅ Бот запущен!")
-    logger.info(f"🌐 Ссылка на игру: {WEB_APP_URL}")
-    logger.info("📊 База данных готова к работе с лидербордом!")
-    
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
-
-if __name__ == '__main__':
-    main()
+        // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
+        function showScreen(screenName) {
+            document.querySelectorAll('.screen-container').forEach(screen => {
+                screen.classList.add('hidden');
+            });
+            
+            document.getElementById(screenName + 'Screen').classList.remove('hidden');
+            currentScreen = screenName;
+            
+            if (screenName === 'top') {
+                updateLeaderboardUI();
+            }
+        }
+        
+        function showAlert(message, type = 'info') {
+            const alert = document.getElementById('alertMessage');
+            alert.textContent = message;
+            alert.className = `alert alert-${type}`;
+            alert.classList.remove('hidden');
+            
+            setTimeout(() => {
+                alert.classList.add('hidden');
+            }, 3000);
+        }
+        
+        // ========== ИНИЦИАЛИЗАЦИЯ ==========
+        function init() {
+            initTelegram();
+            loadSettings();
+            
+            // Слайдер бомб (максимум 24!)
+            const bombSlider = document.getElementById('bombSlider');
+            const bombCountDisplay = document.getElementById('bombCountDisplay');
+            const sliderValue = document.getElementById('sliderValue');
+            const cookieCountDisplay = document.getElementById('cookieCountDisplay');
+            
+            function updateSlider() {
+                const bombs = parseInt(bombSlider.value);
+                const cookies = GRID_SIZE * GRID_SIZE - bombs;
+                
+                bombCountDisplay.textContent = bombs;
+                sliderValue.textContent = bombs;
+                cookieCountDisplay.textContent = cookies;
+            }
+            
+            bombSlider.addEventListener('input', updateSlider);
+            updateSlider();
+            
+            // Кнопки
+            document.getElementById('startGameBtn').onclick = () => {
+                initGame();
+                showScreen('game');
+            };
+            
+            document.getElementById('topPlayersBtn').onclick = () => {
+                showScreen('top');
+            };
+            
+            document.getElementById('settingsBtn').onclick = () => {
+                showScreen('settings');
+            };
+            
+            document.getElementById('restartGameBtn').onclick = () => {
+                initGame();
+            };
+            
+            document.getElementById('backToMenuBtn').onclick = () => {
+                showScreen('menu');
+            };
+            
+            document.getElementById('backFromTopBtn').onclick = () => {
+                showScreen('menu');
+            };
+            
+            document.getElementById('saveSettingsBtn').onclick = saveSettings;
+            document.getElementById('cancelSettingsBtn').onclick = () => {
+                showScreen('menu');
+            };
+            document.getElementById('resetStatsBtn').onclick = resetStats;
+            
+            // Переключатели
+            document.getElementById('themeToggle').onchange = toggleTheme;
+            document.getElementById('soundToggle').onchange = (e) => {
+                soundEnabled = e.target.checked;
+            };
+            
+            // Инициализируем игру
+            initGame();
+        }
+        
+        // Запускаем игру при загрузке страницы
+        window.onload = init;
+    </script>
+</body>
+</html>
