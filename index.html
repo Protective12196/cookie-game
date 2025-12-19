@@ -926,34 +926,40 @@
         }
         
         function shareScore() {
-            if (!tg) {
-                showAlert("Функция доступна только в Telegram", 'info');
-                return;
-            }
-            
-            const gameUrl = "https://protective12196.github.io/cookie-game/index.html";
-            const shareText = `🍪💣 Мой рекорд в игре "Печеньки и Бомбы": ${bestScore} очков!\n\n🎮 Попробуй побить мой результат!\n${gameUrl}`;
-            
-            if (tg.shareURL) {
-                tg.shareURL(gameUrl, shareText);
-            } else {
-                // Альтернативный способ
-                const shareData = {
-                    title: 'Печеньки и Бомбы',
-                    text: shareText,
-                    url: gameUrl
-                };
-                
-                if (navigator.share && navigator.canShare(shareData)) {
-                    navigator.share(shareData);
-                } else {
-                    // Копируем в буфер обмена
-                    navigator.clipboard.writeText(shareText).then(() => {
-                        showAlert("Текст скопирован! Поделись с друзьями!", 'success');
-                    });
-                }
-            }
+    const gameUrl = "https://protective12196.github.io/cookie-game/index.html";
+    const botUsername = "@CookieGameBot"; // Замени на юзернейм своего бота!
+    
+    let shareText = `🍪💣 *Мой рекорд в игре "Печеньки и Бомбы": ${bestScore} очков!*\n\n`;
+    shareText += `🎮 *Хочешь побить мой результат?*\n`;
+    shareText += `Ищи бота: ${botUsername}\n\n`;
+    shareText += `#ПеченькиИБомбы #TelegramGame`;
+    
+    if (tg) {
+        // В Telegram используем tg.shareURL
+        if (tg.shareURL) {
+            tg.shareURL(gameUrl, shareText);
+        } else {
+            // Альтернативный способ для Telegram
+            const telegramShareUrl = `https://t.me/share/url?url=${encodeURIComponent(gameUrl)}&text=${encodeURIComponent(shareText)}`;
+            window.open(telegramShareUrl, '_blank');
         }
+    } else {
+        // Для браузера
+        if (navigator.share) {
+            navigator.share({
+                title: 'Мой рекорд в Печеньках и Бомбах',
+                text: shareText,
+                url: gameUrl
+            });
+        } else {
+            // Копируем в буфер обмена
+            const textToCopy = `${shareText}\n\n${gameUrl}`;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                showAlert("📋 Текст скопирован! Вставь в Telegram и отправь друзьям!", 'success');
+            });
+        }
+    }
+}
         
         // ========== ИГРОВАЯ ЛОГИКА ==========
         function initGame() {
