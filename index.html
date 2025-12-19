@@ -2,125 +2,235 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>🍪 Печеньки и Бомбы</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🍪 Cookie Clicker Game</title>
     <style>
-        body {
-            font-family: Arial;
-            text-align: center;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px;
+        * {
             margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        .container {
-            max-width: 400px;
-            margin: 0 auto;
-            background: rgba(255,255,255,0.1);
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
             padding: 20px;
-            border-radius: 15px;
         }
-        .game-board {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 5px;
+        
+        .game-container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 2.5em;
+        }
+        
+        .cookie {
+            font-size: 120px;
+            cursor: pointer;
+            transition: transform 0.1s;
+            margin: 20px 0;
+            user-select: none;
+        }
+        
+        .cookie:active {
+            transform: scale(0.9);
+        }
+        
+        .counter {
+            font-size: 48px;
+            font-weight: bold;
+            color: #4CAF50;
             margin: 20px 0;
         }
-        .cell {
-            aspect-ratio: 1;
-            background: rgba(255,255,255,0.2);
-            border-radius: 5px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            cursor: pointer;
+        
+        .stats {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-size: 18px;
         }
-        button {
+        
+        .upgrades {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        
+        .upgrade-btn {
             background: #4CAF50;
             color: white;
             border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            margin: 5px;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 16px;
             cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .upgrade-btn:hover {
+            background: #45a049;
+        }
+        
+        .upgrade-btn:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        .instructions {
+            margin-top: 25px;
+            color: #666;
+            font-size: 14px;
+            line-height: 1.5;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🍪 Печеньки и Бомбы 💣</h1>
-        <p>Счет: <span id="score">0</span></p>
-        <div class="game-board" id="board"></div>
-        <div>
-            <button onclick="newGame(5)">Легко (5 бомб)</button>
-            <button onclick="newGame(10)">Средне (10)</button>
-            <button onclick="newGame(15)">Сложно (15)</button>
+    <div class="game-container">
+        <h1>🍪 Cookie Clicker</h1>
+        
+        <div class="counter" id="counter">Печенек: <span id="cookieCount">0</span></div>
+        
+        <div class="cookie" id="cookie" onclick="clickCookie()">🍪</div>
+        
+        <div class="stats">
+            <p>📈 Печенек в секунду: <span id="cookiesPerSecond">0</span></p>
+            <p>🔧 Авто-кликеров: <span id="autoClickers">0</span></p>
+            <p>🏭 Фабрик: <span id="factories">0</span></p>
         </div>
-        <button onclick="newGame(bombs)">🔄 Новая игра</button>
+        
+        <div class="upgrades">
+            <button class="upgrade-btn" onclick="buyAutoClicker()" id="autoClickerBtn">
+                🤖 Авто-кликер<br>
+                <small>Цена: 10 печенек</small>
+            </button>
+            
+            <button class="upgrade-btn" onclick="buyFactory()" id="factoryBtn">
+                🏭 Фабрика<br>
+                <small>Цена: 50 печенек</small>
+            </button>
+            
+            <button class="upgrade-btn" onclick="buyMegaFactory()" id="megaFactoryBtn">
+                🚀 Мега-фабрика<br>
+                <small>Цена: 200 печенек</small>
+            </button>
+        </div>
+        
+        <div class="instructions">
+            <p><strong>Как играть:</strong></p>
+            <p>1. Кликайте на печеньку чтобы получать печеньки 🍪</p>
+            <p>2. Покупайте улучшения чтобы зарабатывать автоматически</p>
+            <p>3. Соревнуйтесь с друзьями!</p>
+        </div>
     </div>
 
     <script>
-        // Telegram Web App
-        let tg = window.Telegram.WebApp;
-        tg.expand();
+        // Игровые переменные
+        let cookies = 0;
+        let autoClickers = 0;
+        let factories = 0;
+        let megaFactories = 0;
         
-        let score = 0;
-        let bombs = 5;
-        let board = [];
+        // Цены
+        const AUTO_CLICKER_PRICE = 10;
+        const FACTORY_PRICE = 50;
+        const MEGA_FACTORY_PRICE = 200;
         
-        function newGame(bombCount) {
-            bombs = bombCount;
-            score = 0;
-            document.getElementById('score').textContent = score;
-            createBoard();
+        // Элементы
+        const cookieCountEl = document.getElementById('cookieCount');
+        const cookiesPerSecondEl = document.getElementById('cookiesPerSecond');
+        const autoClickersEl = document.getElementById('autoClickers');
+        const factoriesEl = document.getElementById('factories');
+        
+        // Клик по печеньке
+        function clickCookie() {
+            cookies++;
+            updateDisplay();
+            
+            // Анимация
+            const cookie = document.getElementById('cookie');
+            cookie.style.transform = 'scale(0.9)';
+            setTimeout(() => {
+                cookie.style.transform = 'scale(1)';
+            }, 100);
         }
         
-        function createBoard() {
-            const boardEl = document.getElementById('board');
-            boardEl.innerHTML = '';
-            board = [];
-            
-            // Создаем пустую доску
-            for(let i=0; i<25; i++) {
-                const cell = document.createElement('div');
-                cell.className = 'cell';
-                cell.textContent = '⬜';
-                cell.onclick = () => clickCell(i);
-                boardEl.appendChild(cell);
-                board.push({isBomb: false, revealed: false});
-            }
-            
-            // Расставляем бомбы
-            for(let i=0; i<bombs; i++) {
-                let index;
-                do {
-                    index = Math.floor(Math.random() * 25);
-                } while(board[index].isBomb);
-                board[index].isBomb = true;
-            }
-        }
-        
-        function clickCell(index) {
-            if(board[index].revealed) return;
-            
-            board[index].revealed = true;
-            const cellEl = document.getElementById('board').children[index];
-            
-            if(board[index].isBomb) {
-                cellEl.textContent = '💣';
-                cellEl.style.background = '#ff6b6b';
-                setTimeout(() => alert('💥 БОМБА! Игра окончена!'), 100);
-            } else {
-                cellEl.textContent = '🍪';
-                cellEl.style.background = '#90ee90';
-                score += 20;
-                document.getElementById('score').textContent = score;
+        // Покупка авто-кликера
+        function buyAutoClicker() {
+            if (cookies >= AUTO_CLICKER_PRICE) {
+                cookies -= AUTO_CLICKER_PRICE;
+                autoClickers++;
+                updateDisplay();
             }
         }
         
-        // Начало игры
-        newGame(5);
+        // Покупка фабрики
+        function buyFactory() {
+            if (cookies >= FACTORY_PRICE) {
+                cookies -= FACTORY_PRICE;
+                factories++;
+                updateDisplay();
+            }
+        }
+        
+        // Покупка мега-фабрики
+        function buyMegaFactory() {
+            if (cookies >= MEGA_FACTORY_PRICE) {
+                cookies -= MEGA_FACTORY_PRICE;
+                megaFactories++;
+                updateDisplay();
+            }
+        }
+        
+        // Обновление отображения
+        function updateDisplay() {
+            cookieCountEl.textContent = Math.floor(cookies);
+            autoClickersEl.textContent = autoClickers;
+            factoriesEl.textContent = factories;
+            
+            // Обновляем кнопки
+            document.getElementById('autoClickerBtn').disabled = cookies < AUTO_CLICKER_PRICE;
+            document.getElementById('factoryBtn').disabled = cookies < FACTORY_PRICE;
+            document.getElementById('megaFactoryBtn').disabled = cookies < MEGA_FACTORY_PRICE;
+            
+            // Считаем печеньки в секунду
+            const cps = autoClickers * 1 + factories * 5 + megaFactories * 25;
+            cookiesPerSecondEl.textContent = cps;
+        }
+        
+        // Автоматическое производство
+        function autoProduction() {
+            const cps = autoClickers * 1 + factories * 5 + megaFactories * 25;
+            cookies += cps / 10; // 10 раз в секунду
+            updateDisplay();
+        }
+        
+        // Запускаем игровой цикл
+        setInterval(autoProduction, 100);
+        
+        // Инициализация
+        updateDisplay();
+        
+        // Для Telegram Mini Apps (позже добавим)
+        if (window.Telegram?.WebApp) {
+            Telegram.WebApp.ready();
+            Telegram.WebApp.expand();
+        }
     </script>
 </body>
 </html>
