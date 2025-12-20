@@ -77,6 +77,15 @@
             display: flex;
             align-items: center;
             gap: 12px;
+            flex: 1;
+        }
+        
+        .user-stats {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            margin-right: 15px;
+            text-align: right;
         }
         
         .avatar {
@@ -130,6 +139,16 @@
             font-size: 2.5em;
             margin-bottom: 25px;
             text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        
+        .title-text {
+            display: inline;
         }
         
         h2 {
@@ -595,6 +614,15 @@
                 height: 40px;
                 font-size: 16px;
             }
+            
+            .tg-header {
+                flex-wrap: wrap;
+            }
+            
+            .user-stats {
+                font-size: 12px;
+                margin-right: 10px;
+            }
         }
         
         @keyframes cookieSpin {
@@ -623,31 +651,26 @@
         <div class="user-info">
             <div class="default-avatar" id="userAvatar">U</div>
             <div>
-                <div id="username">Игрок</div>
+                <div id="username" style="font-weight: bold;">Игрок</div>
                 <div style="font-size: 12px; opacity: 0.8;">ID: <span id="userid">---</span></div>
             </div>
         </div>
+        
+        <div class="user-stats">
+            <div style="font-size: 14px; opacity: 0.9;">Лучший счет</div>
+            <div style="font-size: 20px; font-weight: bold; color: var(--success)" id="tgBestScore">0</div>
+            <div style="font-size: 12px; opacity: 0.7; margin-top: 2px;">Всего: <span id="tgTotalScore">0</span></div>
+        </div>
+        
         <div class="tg-buttons">
             <button class="btn btn-secondary" id="shareBtn" title="Поделиться" style="display: none;">
                 <span style="font-size: 18px;">📤</span>
-            </button>
-            <button class="btn btn-secondary" id="closeBtn" title="Закрыть" style="display: none;">
-                <span style="font-size: 18px;">❌</span>
             </button>
         </div>
     </div>
     
     <div class="screen-container" id="menuScreen">
         <h1>🍪 Печеньки и Бомбы 💣</h1>
-        
-        <div class="user-info" style="justify-content: center; margin-bottom: 25px;">
-            <div class="default-avatar" id="menuAvatar">U</div>
-            <div style="text-align: left;">
-                <div id="menuUsername">Игрок</div>
-                <div style="font-size: 14px; opacity: 0.8;">Лучший счет: <span id="bestScore">0</span></div>
-                <div style="font-size: 12px; opacity: 0.7;">Всего очков: <span id="totalScore">0</span></div>
-            </div>
-        </div>
         
         <div class="bomb-slider-container">
             <h3>Количество бомб: <span id="bombCountDisplay">5</span></h3>
@@ -677,8 +700,6 @@
                 ⚙️ НАСТРОЙКИ
             </button>
         </div>
-        
-        
     </div>
     
     <div class="screen-container hidden" id="gameScreen">
@@ -859,25 +880,16 @@
                     // Обновляем UI
                     document.getElementById('username').textContent = userData.firstName;
                     document.getElementById('userid').textContent = userData.id;
-                    document.getElementById('menuUsername').textContent = userData.firstName;
                     
                     // Аватар
                     updateAvatar(userData);
                     
-                    // Показываем кнопки Telegram
+                    // Показываем кнопку Поделиться
                     document.getElementById('shareBtn').style.display = 'block';
-                    document.getElementById('closeBtn').style.display = 'block';
                     
                     // Кнопка "Поделиться"
                     document.getElementById('shareBtn').onclick = () => {
                         shareScore();
-                    };
-                    
-                    // Кнопка "Закрыть"
-                    document.getElementById('closeBtn').onclick = () => {
-                        if (tg && tg.close) {
-                            tg.close();
-                        }
                     };
                     
                     // Загружаем статистику пользователя
@@ -902,15 +914,12 @@
         
         function updateAvatar(user) {
             const avatarElement = document.getElementById('userAvatar');
-            const menuAvatar = document.getElementById('menuAvatar');
             
             if (user.photoUrl) {
                 avatarElement.innerHTML = `<img src="${user.photoUrl}" class="avatar" alt="${user.firstName}">`;
-                menuAvatar.innerHTML = `<img src="${user.photoUrl}" class="avatar" alt="${user.firstName}">`;
             } else {
                 const initials = user.firstName ? user.firstName[0].toUpperCase() : 'U';
                 avatarElement.textContent = initials;
-                menuAvatar.textContent = initials;
             }
         }
         
@@ -1122,9 +1131,11 @@
             bestScore = userStats.bestScore || 0;
             totalScore = userStats.totalScore || 0;
             
-            document.getElementById('bestScore').textContent = bestScore;
+            // Обновляем счет в Telegram шапке
+            document.getElementById('tgBestScore').textContent = bestScore;
+            document.getElementById('tgTotalScore').textContent = totalScore;
+            
             document.getElementById('myBestScore').textContent = bestScore;
-            document.getElementById('totalScore').textContent = totalScore;
             document.getElementById('myTotalScore').textContent = totalScore;
             
             // Загружаем лидерборд
@@ -1225,10 +1236,11 @@
             // Сохраняем обновленные суммы
             totalScore = userStats.totalScore;
             
-            // Обновляем UI
-            document.getElementById('bestScore').textContent = bestScore;
+            // Обновляем UI в Telegram шапке
+            document.getElementById('tgBestScore').textContent = bestScore;
+            document.getElementById('tgTotalScore').textContent = totalScore;
+            
             document.getElementById('myBestScore').textContent = bestScore;
-            document.getElementById('totalScore').textContent = totalScore;
             document.getElementById('myTotalScore').textContent = totalScore;
             
             // Сохраняем в localStorage
