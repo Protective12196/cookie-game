@@ -15,8 +15,8 @@
         :root {
             --bg-dark: #1a1a2e;
             --bg-light: #f0f2f5;
-            --panel-dark: #2d2d44;
-            --panel-light: #ffffff;
+            --panel-dark: rgba(45, 45, 68, 0.8);
+            --panel-light: rgba(255, 255, 255, 0.9);
             --cell-dark: #3a3a5d;
             --cell-light: #e4e6eb;
             --cookie-color: #8BC34A;
@@ -28,6 +28,8 @@
             --success: #4CAF50;
             --danger: #dc3545;
             --warning: #ff9800;
+            --glass-blur: none;
+            --glass-opacity: 0.8;
         }
         
         body {
@@ -48,6 +50,26 @@
             color: var(--text-light);
         }
         
+        body.glass-effect .screen-container,
+        body.glass-effect .tg-header {
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        body.dark-theme.glass-effect .screen-container,
+        body.dark-theme.glass-effect .tg-header {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        body.light-theme.glass-effect .screen-container,
+        body.light-theme.glass-effect .tg-header {
+            background: rgba(255, 255, 255, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+        
         .hidden {
             display: none !important;
         }
@@ -59,7 +81,7 @@
             padding: 15px 20px;
             margin-bottom: 20px;
             border-radius: 15px;
-            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
         }
         
         .dark-theme .tg-header {
@@ -115,7 +137,6 @@
             gap: 10px;
         }
         
-        /* ДОБАВЬ ЭТОТ CSS */
         .dark-theme .total-text {
             color: var(--text-dark);
         }
@@ -129,7 +150,7 @@
             margin: 0 auto;
             padding: 20px;
             border-radius: 20px;
-            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
         }
         
         .dark-theme .screen-container {
@@ -156,10 +177,6 @@
             overflow: hidden;
         }
         
-        .title-text {
-            display: inline;
-        }
-        
         h2 {
             font-size: 1.8em;
             margin-bottom: 20px;
@@ -178,6 +195,7 @@
             margin: 25px 0;
             padding: 20px;
             border-radius: 15px;
+            transition: all 0.3s ease;
         }
         
         .dark-theme .game-stats {
@@ -219,6 +237,7 @@
             margin: 30px 0;
             padding: 20px;
             border-radius: 15px;
+            transition: all 0.3s ease;
         }
         
         .dark-theme .game-board {
@@ -351,6 +370,7 @@
             margin: 25px 0;
             padding: 20px;
             border-radius: 15px;
+            transition: all 0.3s ease;
         }
         
         .dark-theme .leaderboard-container {
@@ -517,6 +537,7 @@
             padding: 25px;
             margin: 20px 0;
             border-radius: 15px;
+            transition: all 0.3s ease;
         }
         
         .dark-theme .bomb-slider-container {
@@ -806,8 +827,19 @@
             
             <div class="settings-option">
                 <div>
+                    <div style="font-weight: bold;">🔮 Liquid Glass</div>
+                    <div style="font-size: 14px; opacity: 0.8;">Стеклянный эффект интерфейса</div>
+                </div>
+                <label class="theme-switch">
+                    <input type="checkbox" id="glassToggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            
+            <div class="settings-option">
+                <div>
                     <div style="font-weight: bold;">ℹ️ О приложении</div>
-                    <div style="font-size: 14px; opacity: 0.8;">Версия 1.1.0</div>
+                    <div style="font-size: 14px; opacity: 0.8;">Версия 1.2.0</div>
                 </div>
             </div>
         </div>
@@ -850,6 +882,7 @@
         let currentScreen = 'menu';
         let currentTheme = 'dark';
         let soundEnabled = true;
+        let glassEffectEnabled = false;
         let userData = {};
         let leaderboard = [];
         let totalScore = 0;
@@ -1282,9 +1315,21 @@
             localStorage.setItem('game_theme', currentTheme);
         }
         
+        function toggleGlassEffect() {
+            glassEffectEnabled = !glassEffectEnabled;
+            if (glassEffectEnabled) {
+                document.body.classList.add('glass-effect');
+                document.documentElement.style.setProperty('--glass-blur', 'blur(15px)');
+            } else {
+                document.body.classList.remove('glass-effect');
+                document.documentElement.style.setProperty('--glass-blur', 'none');
+            }
+        }
+        
         function loadSettings() {
             const savedTheme = localStorage.getItem('game_theme');
             const savedSound = localStorage.getItem('game_sound');
+            const savedGlass = localStorage.getItem('game_glass');
             
             if (savedTheme === 'light') {
                 document.getElementById('themeToggle').checked = true;
@@ -1295,11 +1340,18 @@
                 document.getElementById('soundToggle').checked = false;
                 soundEnabled = false;
             }
+            
+            if (savedGlass === 'true') {
+                document.getElementById('glassToggle').checked = true;
+                glassEffectEnabled = true;
+                toggleGlassEffect();
+            }
         }
         
         function saveSettings() {
             localStorage.setItem('game_theme', currentTheme);
             localStorage.setItem('game_sound', soundEnabled.toString());
+            localStorage.setItem('game_glass', glassEffectEnabled.toString());
             showAlert('Настройки сохранены!', 'success');
             showScreen('menu');
         }
@@ -1388,6 +1440,7 @@
             document.getElementById('soundToggle').onchange = (e) => {
                 soundEnabled = e.target.checked;
             };
+            document.getElementById('glassToggle').onchange = toggleGlassEffect;
             
             // Инициализируем игру
             initGame();
