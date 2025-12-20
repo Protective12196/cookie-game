@@ -645,6 +645,7 @@
             <div style="text-align: left;">
                 <div id="menuUsername">Игрок</div>
                 <div style="font-size: 14px; opacity: 0.8;">Лучший счет: <span id="bestScore">0</span></div>
+                <div style="font-size: 12px; opacity: 0.7;">Всего очков: <span id="totalScore">0</span></div>
             </div>
         </div>
         
@@ -733,6 +734,10 @@
                 <div style="font-size: 12px;">ТВОЙ РЕКОРД</div>
                 <div style="font-size: 24px; font-weight: bold;" id="myBestScore">0</div>
             </div>
+            <div style="display: inline-block; padding: 10px 20px; background: var(--success); color: white; border-radius: 10px; margin: 10px;">
+                <div style="font-size: 12px;">ВСЕГО ОЧКОВ</div>
+                <div style="font-size: 24px; font-weight: bold;" id="myTotalScore">0</div>
+            </div>
         </div>
         
         <div class="leaderboard-container">
@@ -774,16 +779,6 @@
                     <input type="checkbox" id="soundToggle" checked>
                     <span class="slider"></span>
                 </label>
-            </div>
-            
-            <div class="settings-option">
-                <div>
-                    <div style="font-weight: bold;">📊 Статистика</div>
-                    <div style="font-size: 14px; opacity: 0.8;">Сбросить статистику игры</div>
-                </div>
-                <button class="btn btn-danger" id="resetStatsBtn" style="padding: 8px 16px;">
-                    СБРОС
-                </button>
             </div>
             
             <div class="settings-option">
@@ -835,6 +830,7 @@
         let userData = {};
         let leaderboard = [];
         let bestScore = 0;
+        let totalScore = 0;
         
         // ========== TELEGRAM MINI APP ==========
         const tg = window.Telegram?.WebApp;
@@ -919,40 +915,30 @@
         }
         
         function shareScore() {
-    const gameUrl = "https://protective12196.github.io/cookie-game/index.html";
-    const botUsername = "@cookie_and_bomb_bot"; // Замени на юзернейм своего бота!
-    
-    let shareText = `🍪💣 *Мой рекорд в игре "Печеньки и Бомбы": ${bestScore} очков!*\n\n`;
-    shareText += `🎮 *Хочешь побить мой результат?*\n`;
-    shareText += `Ищи бота: ${botUsername}\n\n`;
-    shareText += `#ПеченькиИБомбы #TelegramGame`;
-    
-    if (tg) {
-        // В Telegram используем tg.shareURL
-        if (tg.shareURL) {
-            tg.shareURL(gameUrl, shareText);
-        } else {
-            // Альтернативный способ для Telegram
-            const telegramShareUrl = `https://t.me/share/url?url=${encodeURIComponent(gameUrl)}&text=${encodeURIComponent(shareText)}`;
-            window.open(telegramShareUrl, '_blank');
+            const botUsername = "@cookie_and_bomb_bot"; // Юзернейм бота
+            
+            let shareText = `🍪💣 Мой рекорд в игре "Печеньки и Бомбы": ${bestScore} очков!\n\n`;
+            shareText += `🎮 Попробуй побить мой результат!\n`;
+            shareText += `${botUsername}`;
+            
+            if (tg) {
+                // В Telegram используем tg.shareURL или отправляем в чат
+                if (tg.shareURL) {
+                    // Если доступно API для шаринга
+                    tg.shareURL("", shareText);
+                } else {
+                    // Альтернативный способ - копируем в буфер обмена
+                    navigator.clipboard.writeText(shareText).then(() => {
+                        showAlert("📋 Текст скопирован! Вставь в Telegram и отправь друзьям!", 'success');
+                    });
+                }
+            } else {
+                // Для браузера копируем в буфер обмена
+                navigator.clipboard.writeText(shareText).then(() => {
+                    showAlert("📋 Текст скопирован! Вставь в Telegram и отправь друзьям!", 'success');
+                });
+            }
         }
-    } else {
-        // Для браузера
-        if (navigator.share) {
-            navigator.share({
-                title: 'Мой рекорд в Печеньках и Бомбах',
-                text: shareText,
-                url: gameUrl
-            });
-        } else {
-            // Копируем в буфер обмена
-            const textToCopy = `${shareText}\n\n${gameUrl}`;
-            navigator.clipboard.writeText(textToCopy).then(() => {
-                showAlert("📋 Текст скопирован! Вставь в Telegram и отправь друзьям!", 'success');
-            });
-        }
-    }
-}
         
         // ========== ИГРОВАЯ ЛОГИКА ==========
         function initGame() {
@@ -1127,11 +1113,19 @@
         // ========== СТАТИСТИКА И ЛИДЕРБОРД ==========
         function loadUserStats() {
             const stats = JSON.parse(localStorage.getItem('cookies_bombs_stats') || '{}');
-            const userStats = stats[userData.id] || { bestScore: 0 };
+            const userStats = stats[userData.id] || { 
+                bestScore: 0, 
+                totalScore: 0,
+                gamesPlayed: 0 
+            };
             
             bestScore = userStats.bestScore || 0;
+            totalScore = userStats.totalScore || 0;
+            
             document.getElementById('bestScore').textContent = bestScore;
             document.getElementById('myBestScore').textContent = bestScore;
+            document.getElementById('totalScore').textContent = totalScore;
+            document.getElementById('myTotalScore').textContent = totalScore;
             
             // Загружаем лидерборд
             loadLeaderboard();
@@ -1149,14 +1143,15 @@
                         id: userId,
                         firstName: playerStats.firstName || 'Игрок',
                         username: playerStats.username || '',
-                        score: playerStats.bestScore || 0,
+                        bestScore: playerStats.bestScore || 0,
+                        totalScore: playerStats.totalScore || 0,
                         games: playerStats.gamesPlayed || 1
                     });
                 }
             }
             
-            // Сортируем по очкам
-            leaderboard.sort((a, b) => b.score - a.score);
+            // Сортируем по лучшему счету
+            leaderboard.sort((a, b) => b.bestScore - a.bestScore);
             
             // Обновляем UI лидерборда
             updateLeaderboardUI();
@@ -1195,8 +1190,8 @@
                                 ${player.firstName} ${isMe ? '(Вы)' : ''}
                                 ${player.username ? `<br><small>@${player.username}</small>` : ''}
                             </div>
-                            <div class="player-score">${player.score} очков</div>
-                            <div class="player-stats">Игр: ${player.games || 1}</div>
+                            <div class="player-score">Лучший: ${player.bestScore} очков</div>
+                            <div class="player-stats">Всего: ${player.totalScore || 0} очков | Игр: ${player.games || 1}</div>
                         </div>
                     </div>
                 `;
@@ -1214,22 +1209,29 @@
                 firstName: userData.firstName,
                 username: userData.username,
                 bestScore: 0,
-                gamesPlayed: 0,
-                totalScore: 0
+                totalScore: 0,
+                gamesPlayed: 0
             };
             
-            // Обновляем статистику
+            // Обновляем статистику - ВСЕ ОЧКИ СУММИРУЮТСЯ
             userStats.gamesPlayed = (userStats.gamesPlayed || 0) + 1;
-            userStats.totalScore = (userStats.totalScore || 0) + gameState.score;
+            userStats.totalScore = (userStats.totalScore || 0) + gameState.score; // Суммируем очки
             
             if (gameState.score > userStats.bestScore) {
                 userStats.bestScore = gameState.score;
                 bestScore = gameState.score;
-                document.getElementById('bestScore').textContent = bestScore;
-                document.getElementById('myBestScore').textContent = bestScore;
             }
             
-            // Сохраняем
+            // Сохраняем обновленные суммы
+            totalScore = userStats.totalScore;
+            
+            // Обновляем UI
+            document.getElementById('bestScore').textContent = bestScore;
+            document.getElementById('myBestScore').textContent = bestScore;
+            document.getElementById('totalScore').textContent = totalScore;
+            document.getElementById('myTotalScore').textContent = totalScore;
+            
+            // Сохраняем в localStorage
             allStats[userData.id] = userStats;
             localStorage.setItem('cookies_bombs_stats', JSON.stringify(allStats));
             
@@ -1245,6 +1247,8 @@
                         username: userData.username,
                         firstName: userData.firstName,
                         score: gameState.score,
+                        totalScore: userStats.totalScore,
+                        bestScore: userStats.bestScore,
                         bombs: gameState.bombs,
                         cookiesFound: gameState.cookiesFound,
                         maxCookies: gameState.maxCookies,
@@ -1295,17 +1299,6 @@
             localStorage.setItem('game_sound', soundEnabled.toString());
             showAlert('Настройки сохранены!', 'success');
             showScreen('menu');
-        }
-        
-        function resetStats() {
-            if (confirm('Вы уверены, что хотите сбросить всю статистику?')) {
-                localStorage.removeItem('cookies_bombs_stats');
-                bestScore = 0;
-                document.getElementById('bestScore').textContent = '0';
-                document.getElementById('myBestScore').textContent = '0';
-                loadLeaderboard();
-                showAlert('Статистика сброшена!', 'success');
-            }
         }
         
         // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
@@ -1386,7 +1379,6 @@
             document.getElementById('cancelSettingsBtn').onclick = () => {
                 showScreen('menu');
             };
-            document.getElementById('resetStatsBtn').onclick = resetStats;
             
             // Переключатели
             document.getElementById('themeToggle').onchange = toggleTheme;
