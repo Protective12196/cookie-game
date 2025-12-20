@@ -3,420 +3,959 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Теченьки и бомбы</title>
+    <title>🍪 Печеньки и Бомбы 💣</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
+        * {
             margin: 0;
             padding: 0;
-            background-color: #f0f0f0;
-            min-height: 100vh;
+            box-sizing: border-box;
         }
         
-        .container {
-            max-width: 500px;
-            margin: 0 auto;
-            padding: 10px;
-            background-color: white;
-            min-height: 100vh;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        :root {
+            --bg-dark: #1a1a2e;
+            --bg-light: #f0f2f5;
+            --panel-dark: #2d2d44;
+            --panel-light: #ffffff;
+            --cell-dark: #3a3a5d;
+            --cell-light: #e4e6eb;
+            --cookie-color: #8BC34A;
+            --bomb-color: #F44336;
+            --text-dark: #ffffff;
+            --text-light: #1c1c1c;
+            --accent: #0088cc;
+            --accent-hover: #006699;
+            --success: #4CAF50;
+            --danger: #dc3545;
+            --warning: #ff9800;
         }
         
-        .header {
+        body {
+            font-family: 'Arial', sans-serif;
+            min-height: 100vh;
+            padding: 20px;
             text-align: center;
-            padding: 15px 0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            margin-bottom: 15px;
-            border-radius: 8px;
+            transition: all 0.3s ease;
         }
         
-        .game-title {
-            font-size: 28px;
-            font-weight: bold;
-            margin-bottom: 5px;
-            color: #FFD700;
+        body.dark-theme {
+            background: linear-gradient(135deg, var(--bg-dark), #16213e);
+            color: var(--text-dark);
         }
         
-        .user-id {
-            font-size: 14px;
-            opacity: 0.9;
+        body.light-theme {
+            background: linear-gradient(135deg, var(--bg-light), #d0d7e0);
+            color: var(--text-light);
         }
         
-        .game-info {
+        .hidden {
+            display: none !important;
+        }
+        
+        .tg-header {
             display: flex;
             justify-content: space-between;
-            padding: 15px;
-            background-color: #f8f8f8;
-            border-radius: 8px;
-            margin-bottom: 15px;
+            align-items: center;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
         }
         
-        .info-block {
-            text-align: center;
+        .dark-theme .tg-header {
+            background: rgba(45, 45, 68, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
         
-        .info-label {
-            font-size: 14px;
-            color: #666;
+        .light-theme .tg-header {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
         }
         
-        .info-value {
-            font-size: 24px;
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--accent);
+        }
+        
+        .default-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
             font-weight: bold;
-            color: #333;
+            font-size: 18px;
+            border: 2px solid var(--accent);
         }
         
-        .controls {
+        .tg-buttons {
             display: flex;
             gap: 10px;
+        }
+        
+        .screen-container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .dark-theme .screen-container {
+            background: rgba(45, 45, 68, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        .light-theme .screen-container {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 25px;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        h2 {
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            color: var(--accent);
+        }
+        
+        h3 {
+            font-size: 1.4em;
             margin-bottom: 15px;
         }
         
-        .control-btn {
-            flex: 1;
-            padding: 12px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            cursor: pointer;
-            text-align: center;
+        .game-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin: 25px 0;
+            padding: 20px;
+            border-radius: 15px;
         }
         
-        .control-btn:hover {
-            opacity: 0.9;
+        .dark-theme .game-stats {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .light-theme .game-stats {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .score-value {
+            color: var(--success);
+        }
+        
+        .time-value {
+            color: var(--warning);
+        }
+        
+        .level-value {
+            color: var(--accent);
         }
         
         .game-board {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
-            gap: 6px;
-            margin-bottom: 15px;
+            gap: 12px;
+            margin: 30px 0;
+            padding: 20px;
+            border-radius: 15px;
+        }
+        
+        .dark-theme .game-board {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .light-theme .game-board {
+            background: rgba(0, 0, 0, 0.05);
         }
         
         .cell {
             aspect-ratio: 1;
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 22px;
-            background-color: #e0e0e0;
-            border-radius: 6px;
+            font-size: 24px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
             user-select: none;
+            position: relative;
+            overflow: hidden;
         }
         
-        .cell:hover {
-            background-color: #d0d0d0;
-            transform: scale(1.02);
+        .dark-theme .cell:not(.revealed) {
+            background: var(--cell-dark);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
         }
         
-        .cell.revealed.cookie {
-            background-color: #90EE90;
-            color: #006400;
+        .light-theme .cell:not(.revealed) {
+            background: var(--cell-light);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
         
-        .cell.revealed.bomb {
-            background-color: #FF6B6B;
-            color: #8B0000;
+        .cell:hover:not(.revealed) {
+            transform: scale(1.05);
         }
         
-        .stats {
-            background-color: #f8f8f8;
+        .cell:active:not(.revealed) {
+            transform: scale(0.95);
+        }
+        
+        .cell.revealed {
+            cursor: default;
+            transform: scale(1);
+        }
+        
+        .cell.cookie {
+            background: rgba(139, 195, 74, 0.3);
+            border: 2px solid var(--cookie-color);
+        }
+        
+        .cell.bomb {
+            background: rgba(244, 67, 54, 0.3);
+            border: 2px solid var(--bomb-color);
+            animation: pulse 0.5s ease-in-out;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .btn {
+            padding: 14px 28px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 136, 204, 0.3);
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: inherit;
+        }
+        
+        .dark-theme .btn-secondary {
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .light-theme .btn-secondary {
+            border: 1px solid rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+        }
+        
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+        
+        .leaderboard-container {
+            max-height: 400px;
+            overflow-y: auto;
+            margin: 25px 0;
+            padding: 20px;
+            border-radius: 15px;
+        }
+        
+        .dark-theme .leaderboard-container {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .light-theme .leaderboard-container {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        
+        .player-row {
+            display: flex;
+            align-items: center;
             padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 15px;
+            margin: 10px 0;
+            border-radius: 12px;
+            transition: all 0.3s ease;
         }
         
-        .stat-item {
+        .dark-theme .player-row {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .light-theme .player-row {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        
+        .player-row:hover {
+            transform: translateX(5px);
+        }
+        
+        .player-row.me {
+            background: rgba(0, 136, 204, 0.2);
+            border-left: 4px solid var(--accent);
+        }
+        
+        .player-rank {
+            width: 40px;
+            font-size: 1.3em;
+            font-weight: bold;
+            color: var(--accent);
+        }
+        
+        .player-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            margin-right: 15px;
+            object-fit: cover;
+            border: 3px solid var(--accent);
+        }
+        
+        .default-player-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 20px;
+            margin-right: 15px;
+            border: 3px solid var(--accent);
+        }
+        
+        .player-info {
+            flex: 1;
+            text-align: left;
+        }
+        
+        .player-name {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 4px;
+        }
+        
+        .player-score {
+            color: var(--success);
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+        
+        .player-stats {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin-top: 3px;
+        }
+        
+        .settings-container {
+            max-width: 450px;
+            margin: 0 auto;
+        }
+        
+        .settings-option {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 8px;
-            font-size: 16px;
-        }
-        
-        .stat-value {
-            font-weight: bold;
-            color: #667eea;
-        }
-        
-        .menu-btn {
-            width: 100%;
-            padding: 15px;
-            margin-bottom: 10px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 18px;
-            cursor: pointer;
-            text-align: center;
-        }
-        
-        .menu-btn:hover {
-            opacity: 0.9;
-        }
-        
-        .bomb-counter {
-            display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 10px;
+            padding: 20px;
             margin: 15px 0;
+            border-radius: 15px;
+            transition: all 0.3s ease;
         }
         
-        .bomb-slider {
-            flex: 1;
-            -webkit-appearance: none;
-            height: 8px;
-            border-radius: 4px;
-            background: #ddd;
-            outline: none;
+        .dark-theme .settings-option {
+            background: rgba(255, 255, 255, 0.05);
         }
         
-        .bomb-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            background: #FF6B6B;
+        .light-theme .settings-option {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        
+        .settings-option:hover {
+            transform: translateX(5px);
+        }
+        
+        .theme-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 30px;
+        }
+        
+        .theme-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
             cursor: pointer;
-            border: 3px solid white;
-            box-shadow: 0 0 5px rgba(0,0,0,0.3);
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background-color: var(--accent);
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(30px);
+        }
+        
+        .bomb-slider-container {
+            padding: 25px;
+            margin: 20px 0;
+            border-radius: 15px;
+        }
+        
+        .dark-theme .bomb-slider-container {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .light-theme .bomb-slider-container {
+            background: rgba(0, 0, 0, 0.05);
         }
         
         .slider-value {
-            font-size: 24px;
+            font-size: 2em;
             font-weight: bold;
-            color: #FF6B6B;
-            min-width: 40px;
-            text-align: center;
+            color: var(--danger);
+            margin: 15px 0;
         }
         
-        .settings-screen, .top-screen {
-            display: none;
-        }
-        
-        .settings-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px;
-            background-color: #f8f8f8;
-            border-radius: 8px;
-            margin-bottom: 10px;
-        }
-        
-        .back-btn {
+        input[type="range"] {
             width: 100%;
-            padding: 12px;
-            margin-top: 15px;
-            background-color: #666;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
+            height: 10px;
+            -webkit-appearance: none;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 5px;
+            outline: none;
+        }
+        
+        .dark-theme input[type="range"] {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            background: var(--accent);
             cursor: pointer;
+            border: 3px solid white;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        .alert {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 30px;
+            border-radius: 12px;
+            z-index: 1000;
+            animation: slideDown 0.3s ease;
+            max-width: 90%;
+            text-align: center;
+            font-weight: bold;
+        }
+        
+        @keyframes slideDown {
+            from {
+                top: -100px;
+                opacity: 0;
+            }
+            to {
+                top: 20px;
+                opacity: 1;
+            }
+        }
+        
+        .alert-success {
+            background: var(--success);
+            color: white;
+        }
+        
+        .alert-danger {
+            background: var(--danger);
+            color: white;
+        }
+        
+        .alert-info {
+            background: var(--accent);
+            color: white;
+        }
+        
+        @media (max-width: 600px) {
+            .game-board {
+                grid-template-columns: repeat(5, 1fr);
+                gap: 8px;
+                padding: 10px;
+            }
+            
+            .cell {
+                font-size: 20px;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+            
+            .btn {
+                padding: 12px 20px;
+                font-size: 14px;
+            }
+            
+            .player-avatar, .default-player-avatar {
+                width: 40px;
+                height: 40px;
+                font-size: 16px;
+            }
+        }
+        
+        @keyframes cookieSpin {
+            0% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(180deg) scale(1.2); }
+            100% { transform: rotate(360deg) scale(1); }
+        }
+        
+        @keyframes bombExplode {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.3); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .cookie-animation {
+            animation: cookieSpin 0.5s ease;
+        }
+        
+        .bomb-animation {
+            animation: bombExplode 0.5s ease;
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <!-- Главное меню -->
-        <div class="menu-screen" id="menuScreen">
-            <div class="header">
-                <div class="game-title">Теченьки и Бомбы</div>
-                <div class="user-id">ID: <span id="userId">1793309949</span></div>
+<body class="dark-theme">
+    <div class="tg-header hidden" id="tgHeader">
+        <div class="user-info">
+            <div class="default-avatar" id="userAvatar">U</div>
+            <div>
+                <div id="username">Игрок</div>
+                <div style="font-size: 12px; opacity: 0.8;">ID: <span id="userid">---</span></div>
             </div>
-            
-            <div class="game-info">
-                <div class="info-block">
-                    <div class="info-label">Лучший счет</div>
-                    <div class="info-value" id="bestScore">0</div>
-                </div>
-                <div class="info-block">
-                    <div class="info-label">Количество бомб</div>
-                    <div class="info-value" id="bombCountDisplay">1</div>
-                </div>
-            </div>
-            
-            <div class="bomb-counter">
-                <div class="slider-value" id="bombSliderValue">1</div>
-                <input type="range" class="bomb-slider" id="bombSlider" min="1" max="24" value="1">
-                <div class="slider-value">24</div>
-            </div>
-            
-            <div class="stats">
-                <div class="stat-item">
-                    <span>Бомбы</span>
-                    <span class="stat-value" id="menuBombCount">1</span>
-                </div>
-                <div class="stat-item">
-                    <span>Печенек</span>
-                    <span class="stat-value" id="menuCookieCount">24</span>
-                </div>
-            </div>
-            
-            <button class="menu-btn" id="startGameBtn">НАЧАТЬ ИГРУ</button>
-            <button class="menu-btn" id="topPlayersBtn">ТОП ИГРОКОВ</button>
-            <button class="menu-btn" id="settingsBtn">НАСТРОЙКИ</button>
         </div>
+        <div class="tg-buttons">
+            <button class="btn btn-secondary" id="shareBtn" title="Поделиться" style="display: none;">
+                <span style="font-size: 18px;">📤</span>
+            </button>
+            <button class="btn btn-secondary" id="closeBtn" title="Закрыть" style="display: none;">
+                <span style="font-size: 18px;">❌</span>
+            </button>
+        </div>
+    </div>
+    
+    <div class="screen-container" id="menuScreen">
+        <h1>🍪 Печеньки и Бомбы 💣</h1>
         
-        <!-- Игровой экран -->
-        <div class="game-screen" id="gameScreen" style="display: none;">
-            <div class="header">
-                <div class="game-title">Теченьки и Бомбы</div>
-                <div class="user-id">Счет: <span id="currentScore">0</span></div>
-            </div>
-            
-            <div class="game-info">
-                <div class="info-block">
-                    <div class="info-label">Печенек</div>
-                    <div class="info-value" id="gameCookiesFound">0/0</div>
-                </div>
-                <div class="info-block">
-                    <div class="info-label">Бомб</div>
-                    <div class="info-value" id="gameBombsLeft">0/0</div>
-                </div>
-            </div>
-            
-            <div class="game-board" id="gameBoard">
-                <!-- Клетки будут созданы через JavaScript -->
-            </div>
-            
-            <div class="controls">
-                <button class="control-btn" id="hintBtn">Подсказка</button>
-                <button class="control-btn" id="restartBtn">Новая игра</button>
-                <button class="control-btn" id="menuBtn">В меню</button>
+        <div class="user-info" style="justify-content: center; margin-bottom: 25px;">
+            <div class="default-avatar" id="menuAvatar">U</div>
+            <div style="text-align: left;">
+                <div id="menuUsername">Игрок</div>
+                <div style="font-size: 14px; opacity: 0.8;">Лучший счет: <span id="bestScore">0</span></div>
             </div>
         </div>
         
-        <!-- Топ игроков -->
-        <div class="top-screen" id="topScreen" style="display: none;">
-            <div class="header">
-                <div class="game-title">ТОП ИГРОКОВ</div>
+        <div class="bomb-slider-container">
+            <h3>Количество бомб: <span id="bombCountDisplay">5</span></h3>
+            <div class="slider-value" id="sliderValue">5</div>
+            <input type="range" id="bombSlider" min="1" max="24" value="5">
+            <div style="display: flex; justify-content: space-between; margin-top: 10px;">
+                <span>1</span>
+                <span style="color: var(--danger)">💣 Бомбы</span>
+                <span>24</span>
             </div>
-            <div id="topPlayersList">
-                <div style="text-align: center; padding: 20px;">Загрузка...</div>
+            <div style="margin-top: 15px; opacity: 0.8;">
+                Печенек: <span id="cookieCountDisplay">20</span>
             </div>
-            <button class="back-btn" id="backFromTopBtn">Назад</button>
         </div>
         
-        <!-- Настройки -->
-        <div class="settings-screen" id="settingsScreen" style="display: none;">
-            <div class="header">
-                <div class="game-title">НАСТРОЙКИ</div>
+        <div style="margin: 30px 0;">
+            <button class="btn btn-primary" id="startGameBtn" style="font-size: 18px; padding: 16px 40px;">
+                🎮 НАЧАТЬ ИГРУ
+            </button>
+        </div>
+        
+        <div style="margin: 20px 0;">
+            <button class="btn btn-secondary" id="topPlayersBtn">
+                🏆 ТОП ИГРОКОВ
+            </button>
+            <button class="btn btn-secondary" id="settingsBtn">
+                ⚙️ НАСТРОЙКИ
+            </button>
+        </div>
+        
+        
+    </div>
+    
+    <div class="screen-container hidden" id="gameScreen">
+        <div class="game-stats">
+            <div class="stat-item">
+                <div class="stat-value score-value" id="currentScore">0</div>
+                <div>СЧЕТ</div>
             </div>
-            
-            <div class="settings-item">
-                <span>Звуки</span>
-                <label class="switch">
-                    <input type="checkbox" id="soundToggle" checked>
-                    <span class="slider"></span>
-                </label>
+            <div class="stat-item">
+                <div class="stat-value time-value" id="cookiesFound">0/20</div>
+                <div>ПЕЧЕНЬКИ</div>
             </div>
-            
-            <div class="settings-item">
-                <span>Вибрация</span>
-                <label class="switch">
-                    <input type="checkbox" id="vibrationToggle" checked>
-                    <span class="slider"></span>
-                </label>
+            <div class="stat-item">
+                <div class="stat-value level-value" id="bombsLeft">5</div>
+                <div>БОМБЫ</div>
             </div>
-            
-            <div class="settings-item">
-                <span>Темная тема</span>
-                <label class="switch">
+        </div>
+        
+        <div class="game-board" id="gameBoard"></div>
+        
+        <div style="margin: 25px 0;">
+            <button class="btn btn-danger" id="restartGameBtn">
+                🔄 РЕСТАРТ
+            </button>
+            <button class="btn btn-secondary" id="backToMenuBtn">
+                ↩️ В МЕНЮ
+            </button>
+        </div>
+        
+        <div style="margin-top: 20px; padding: 15px; border-radius: 12px; background: rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-around;">
+                <div>
+                    <div style="font-size: 12px; opacity: 0.8;">Открыто клеток</div>
+                    <div style="font-weight: bold;" id="cellsOpened">0</div>
+                </div>
+                <div>
+                    <div style="font-size: 12px; opacity: 0.8;">Шанс на печеньку</div>
+                    <div style="font-weight: bold; color: var(--success)" id="cookieChance">100%</div>
+                </div>
+                <div>
+                    <div style="font-size: 12px; opacity: 0.8;">Множитель</div>
+                    <div style="font-weight: bold; color: var(--warning)" id="difficultyMultiplier">1.0x</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="screen-container hidden" id="topScreen">
+        <h2>🏆 ТОП ИГРОКОВ</h2>
+        
+        <div style="margin-bottom: 20px;">
+            <div style="display: inline-block; padding: 10px 20px; background: var(--accent); color: white; border-radius: 10px; margin: 10px;">
+                <div style="font-size: 12px;">ТВОЙ РЕКОРД</div>
+                <div style="font-size: 24px; font-weight: bold;" id="myBestScore">0</div>
+            </div>
+        </div>
+        
+        <div class="leaderboard-container">
+            <div class="leaderboard" id="leaderboard">
+                <div style="padding: 40px; text-align: center; opacity: 0.7;">
+                    Загрузка рейтинга...
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-top: 25px;">
+            <button class="btn btn-primary" id="backFromTopBtn">
+                ↩️ НАЗАД
+            </button>
+        </div>
+    </div>
+    
+    <div class="screen-container hidden" id="settingsScreen">
+        <h2>⚙️ НАСТРОЙКИ</h2>
+        
+        <div class="settings-container">
+            <div class="settings-option">
+                <div>
+                    <div style="font-weight: bold;">🌙 Тема</div>
+                    <div style="font-size: 14px; opacity: 0.8;">Светлая или темная тема</div>
+                </div>
+                <label class="theme-switch">
                     <input type="checkbox" id="themeToggle">
                     <span class="slider"></span>
                 </label>
             </div>
             
-            <div style="margin-top: 20px; text-align: center; color: #666; font-size: 14px;">
-                Версия 1.0.0<br>
-                Максимум 24 бомбы
+            <div class="settings-option">
+                <div>
+                    <div style="font-weight: bold;">🔊 Звуки</div>
+                    <div style="font-size: 14px; opacity: 0.8;">Включить звуковые эффекты</div>
+                </div>
+                <label class="theme-switch">
+                    <input type="checkbox" id="soundToggle" checked>
+                    <span class="slider"></span>
+                </label>
             </div>
             
-            <button class="back-btn" id="backFromSettingsBtn">Назад</button>
+            <div class="settings-option">
+                <div>
+                    <div style="font-weight: bold;">📊 Статистика</div>
+                    <div style="font-size: 14px; opacity: 0.8;">Сбросить статистику игры</div>
+                </div>
+                <button class="btn btn-danger" id="resetStatsBtn" style="padding: 8px 16px;">
+                    СБРОС
+                </button>
+            </div>
+            
+            <div class="settings-option">
+                <div>
+                    <div style="font-weight: bold;">ℹ️ О приложении</div>
+                    <div style="font-size: 14px; opacity: 0.8;">Версия 1.1.0</div>
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-top: 40px;">
+            <button class="btn btn-primary" id="saveSettingsBtn">
+                💾 СОХРАНИТЬ
+            </button>
+            <button class="btn btn-secondary" id="cancelSettingsBtn">
+                ❌ ОТМЕНА
+            </button>
         </div>
     </div>
-
+    
+    <div class="alert hidden" id="alertMessage"></div>
+    
     <script>
-        // ========== КОНСТАНТЫ И ПЕРЕМЕННЫЕ ==========
+        // ========== КОНСТАНТЫ ==========
         const GRID_SIZE = 5;
         const COOKIE_POINTS = 20;
-        const BOMB_PENALTY = 50;
+        const BOMB_MULTIPLIER = 10;
         const WIN_BONUS = 300;
+        const MAX_BOMBS = 24;
         
+        // ========== ПЕРЕМЕННЫЕ ==========
         let gameState = {
             grid: [],
             revealed: [],
-            bombs: 1,
+            bombs: 5,
             score: 0,
             cookiesFound: 0,
+            cellsOpened: 0,
             gameOver: false,
-            gameWon: false
+            gameWon: false,
+            maxCookies: 0,
+            totalCells: GRID_SIZE * GRID_SIZE,
+            difficultyMultiplier: 1.0
         };
         
         let currentScreen = 'menu';
+        let currentTheme = 'dark';
         let soundEnabled = true;
-        let vibrationEnabled = true;
+        let userData = {};
+        let leaderboard = [];
         let bestScore = 0;
         
-        // ========== ИНИЦИАЛИЗАЦИЯ ==========
-        document.addEventListener('DOMContentLoaded', function() {
-            loadSettings();
-            initMenu();
-            setupEventListeners();
-        });
+        // ========== TELEGRAM MINI APP ==========
+        const tg = window.Telegram?.WebApp;
         
-        // ========== МЕНЮ И УПРАВЛЕНИЕ ==========
-        function initMenu() {
-            updateBombSlider();
-            loadBestScore();
+        function initTelegram() {
+            if (tg) {
+                console.log("✅ Telegram WebApp обнаружен");
+                tg.ready();
+                tg.expand();
+                
+                // Показываем Telegram хедер
+                document.getElementById('tgHeader').classList.remove('hidden');
+                
+                // Получаем данные пользователя
+                const user = tg.initDataUnsafe?.user;
+                if (user) {
+                    userData = {
+                        id: user.id.toString(),
+                        firstName: user.first_name || 'Игрок',
+                        username: user.username || '',
+                        photoUrl: user.photo_url || ''
+                    };
+                    
+                    console.log("👤 Пользователь:", userData);
+                    
+                    // Обновляем UI
+                    document.getElementById('username').textContent = userData.firstName;
+                    document.getElementById('userid').textContent = userData.id;
+                    document.getElementById('menuUsername').textContent = userData.firstName;
+                    
+                    // Аватар
+                    updateAvatar(userData);
+                    
+                    // Показываем кнопки Telegram
+                    document.getElementById('shareBtn').style.display = 'block';
+                    document.getElementById('closeBtn').style.display = 'block';
+                    
+                    // Кнопка "Поделиться"
+                    document.getElementById('shareBtn').onclick = () => {
+                        shareScore();
+                    };
+                    
+                    // Кнопка "Закрыть"
+                    document.getElementById('closeBtn').onclick = () => {
+                        if (tg && tg.close) {
+                            tg.close();
+                        }
+                    };
+                    
+                    // Загружаем статистику пользователя
+                    loadUserStats();
+                    
+                } else {
+                    console.log("⚠️ Данные пользователя не получены");
+                    userData = { id: 'unknown', firstName: 'Игрок' };
+                }
+                
+            } else {
+                console.log("🌐 Браузерная версия");
+                userData = {
+                    id: 'browser_' + Math.random().toString(36).substr(2, 9),
+                    firstName: 'Игрок',
+                    username: '',
+                    photoUrl: ''
+                };
+                loadUserStats();
+            }
         }
         
-        function setupEventListeners() {
-            // Кнопки меню
-            document.getElementById('startGameBtn').addEventListener('click', startGame);
-            document.getElementById('topPlayersBtn').addEventListener('click', showTopPlayers);
-            document.getElementById('settingsBtn').addEventListener('click', showSettings);
+        function updateAvatar(user) {
+            const avatarElement = document.getElementById('userAvatar');
+            const menuAvatar = document.getElementById('menuAvatar');
             
-            // Игровые кнопки
-            document.getElementById('hintBtn').addEventListener('click', giveHint);
-            document.getElementById('restartBtn').addEventListener('click', restartGame);
-            document.getElementById('menuBtn').addEventListener('click', showMenu);
-            
-            // Кнопки назад
-            document.getElementById('backFromTopBtn').addEventListener('click', showMenu);
-            document.getElementById('backFromSettingsBtn').addEventListener('click', showMenu);
-            
-            // Слайдер бомб
-            const bombSlider = document.getElementById('bombSlider');
-            bombSlider.addEventListener('input', updateBombSlider);
-            
-            // Настройки
-            document.getElementById('soundToggle').addEventListener('change', toggleSound);
-            document.getElementById('vibrationToggle').addEventListener('change', toggleVibration);
-            document.getElementById('themeToggle').addEventListener('change', toggleTheme);
+            if (user.photoUrl) {
+                avatarElement.innerHTML = `<img src="${user.photoUrl}" class="avatar" alt="${user.firstName}">`;
+                menuAvatar.innerHTML = `<img src="${user.photoUrl}" class="avatar" alt="${user.firstName}">`;
+            } else {
+                const initials = user.firstName ? user.firstName[0].toUpperCase() : 'U';
+                avatarElement.textContent = initials;
+                menuAvatar.textContent = initials;
+            }
         }
         
-        function updateBombSlider() {
-            const slider = document.getElementById('bombSlider');
-            const value = parseInt(slider.value);
-            
-            document.getElementById('bombSliderValue').textContent = value;
-            document.getElementById('bombCountDisplay').textContent = value;
-            document.getElementById('menuBombCount').textContent = value;
-            document.getElementById('menuCookieCount').textContent = (25 - value);
+        function shareScore() {
+    const gameUrl = "https://protective12196.github.io/cookie-game/index.html";
+    const botUsername = "@cookie_and_bomb_bot"; // Замени на юзернейм своего бота!
+    
+    let shareText = `🍪💣 *Мой рекорд в игре "Печеньки и Бомбы": ${bestScore} очков!*\n\n`;
+    shareText += `🎮 *Хочешь побить мой результат?*\n`;
+    shareText += `Ищи бота: ${botUsername}\n\n`;
+    shareText += `#ПеченькиИБомбы #TelegramGame`;
+    
+    if (tg) {
+        // В Telegram используем tg.shareURL
+        if (tg.shareURL) {
+            tg.shareURL(gameUrl, shareText);
+        } else {
+            // Альтернативный способ для Telegram
+            const telegramShareUrl = `https://t.me/share/url?url=${encodeURIComponent(gameUrl)}&text=${encodeURIComponent(shareText)}`;
+            window.open(telegramShareUrl, '_blank');
         }
+    } else {
+        // Для браузера
+        if (navigator.share) {
+            navigator.share({
+                title: 'Мой рекорд в Печеньках и Бомбах',
+                text: shareText,
+                url: gameUrl
+            });
+        } else {
+            // Копируем в буфер обмена
+            const textToCopy = `${shareText}\n\n${gameUrl}`;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                showAlert("📋 Текст скопирован! Вставь в Telegram и отправь друзьям!", 'success');
+            });
+        }
+    }
+}
         
         // ========== ИГРОВАЯ ЛОГИКА ==========
-        function startGame() {
+        function initGame() {
             const bombs = parseInt(document.getElementById('bombSlider').value);
             gameState = {
                 grid: [],
@@ -424,8 +963,12 @@
                 bombs: bombs,
                 score: 0,
                 cookiesFound: 0,
+                cellsOpened: 0,
                 gameOver: false,
-                gameWon: false
+                gameWon: false,
+                maxCookies: GRID_SIZE * GRID_SIZE - bombs,
+                totalCells: GRID_SIZE * GRID_SIZE,
+                difficultyMultiplier: 1.0 + (bombs / 30.0)
             };
             
             // Создаем пустую сетку
@@ -459,8 +1002,6 @@
                 }
             }
             
-            // Показываем игровой экран
-            showGameScreen();
             updateGameUI();
             renderGameBoard();
         }
@@ -487,7 +1028,7 @@
                         }
                     }
                     
-                    cell.addEventListener('click', () => handleCellClick(i, j));
+                    cell.onclick = () => handleCellClick(i, j);
                     board.appendChild(cell);
                 }
             }
@@ -499,6 +1040,7 @@
             }
             
             gameState.revealed[row][col] = true;
+            gameState.cellsOpened++;
             
             const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
             cell.classList.add('revealed');
@@ -506,185 +1048,358 @@
             if (gameState.grid[row][col] === 1) {
                 // Печенька
                 cell.classList.add('cookie');
+                cell.classList.add('cookie-animation');
                 cell.innerHTML = '🍪';
                 
                 gameState.cookiesFound++;
-                gameState.score += COOKIE_POINTS;
+                
+                // Расчет очков
+                const basePoints = COOKIE_POINTS;
+                const bombBonus = gameState.bombs * BOMB_MULTIPLIER;
+                let pointsForCookie = Math.floor(basePoints + (bombBonus / gameState.maxCookies));
+                pointsForCookie = Math.floor(pointsForCookie * gameState.difficultyMultiplier);
+                
+                gameState.score += Math.max(1, pointsForCookie);
                 
                 // Проверка победы
-                const totalCookies = GRID_SIZE * GRID_SIZE - gameState.bombs;
-                if (gameState.cookiesFound === totalCookies) {
+                if (gameState.cookiesFound === gameState.maxCookies) {
                     gameState.gameWon = true;
-                    gameState.score += WIN_BONUS;
-                    alert(`🎉 ПОБЕДА! Вы нашли все печеньки! Ваш счет: ${gameState.score}`);
-                    saveBestScore();
+                    const winBonus = Math.floor(WIN_BONUS * gameState.difficultyMultiplier);
+                    const bombCompletionBonus = gameState.bombs * BOMB_MULTIPLIER * 2;
+                    gameState.score += winBonus + bombCompletionBonus;
+                    
+                    showAlert('🎉 ПОБЕДА! Вы нашли все печеньки!', 'success');
+                    saveGameResult();
                 }
                 
             } else if (gameState.grid[row][col] === -1) {
                 // Бомба
                 cell.classList.add('bomb');
+                cell.classList.add('bomb-animation');
                 cell.innerHTML = '💣';
                 
                 gameState.gameOver = true;
-                gameState.score = Math.max(0, gameState.score - BOMB_PENALTY);
                 
-                // Показываем все бомбы
+                // Открываем все клетки
                 for (let i = 0; i < GRID_SIZE; i++) {
                     for (let j = 0; j < GRID_SIZE; j++) {
-                        if (gameState.grid[i][j] === -1 && !gameState.revealed[i][j]) {
-                            gameState.revealed[i][j] = true;
-                            const bombCell = document.querySelector(`.cell[data-row="${i}"][data-col="${j}"]`);
-                            bombCell.classList.add('revealed', 'bomb');
-                            bombCell.innerHTML = '💣';
-                        }
+                        gameState.revealed[i][j] = true;
                     }
                 }
                 
-                alert(`💥 БОМБА! Игра окончена! Ваш счет: ${gameState.score}`);
-                saveBestScore();
+                showAlert('💥 БОМБА! Игра окончена!', 'danger');
+                saveGameResult();
             }
             
             updateGameUI();
+            renderGameBoard();
         }
         
         function updateGameUI() {
             document.getElementById('currentScore').textContent = gameState.score;
+            document.getElementById('cookiesFound').textContent = `${gameState.cookiesFound}/${gameState.maxCookies}`;
             
-            const totalCells = GRID_SIZE * GRID_SIZE;
-            const revealedCells = gameState.revealed.flat().filter(Boolean).length;
-            const cookiesLeft = (totalCells - gameState.bombs) - gameState.cookiesFound;
-            const bombsLeft = gameState.bombs - (revealedCells - gameState.cookiesFound);
-            
-            document.getElementById('gameCookiesFound').textContent = 
-                `${gameState.cookiesFound}/${totalCells - gameState.bombs}`;
-            document.getElementById('gameBombsLeft').textContent = 
-                `${bombsLeft > 0 ? bombsLeft : 0}/${gameState.bombs}`;
-        }
-        
-        function giveHint() {
-            if (gameState.gameOver || gameState.gameWon) return;
-            
-            // Находим первую скрытую печеньку
+            // Считаем сколько бомб осталось
+            let bombsLeft = gameState.bombs;
             for (let i = 0; i < GRID_SIZE; i++) {
                 for (let j = 0; j < GRID_SIZE; j++) {
-                    if (!gameState.revealed[i][j] && gameState.grid[i][j] === 1) {
-                        const cell = document.querySelector(`.cell[data-row="${i}"][data-col="${j}"]`);
-                        cell.style.backgroundColor = '#FFD700';
-                        cell.style.boxShadow = '0 0 10px #FFD700';
-                        
-                        setTimeout(() => {
-                            cell.style.backgroundColor = '';
-                            cell.style.boxShadow = '';
-                        }, 1000);
-                        
-                        gameState.score = Math.max(0, gameState.score - 10);
-                        updateGameUI();
-                        return;
+                    if (!gameState.revealed[i][j] && gameState.grid[i][j] === -1) {
+                        bombsLeft--;
                     }
                 }
             }
+            document.getElementById('bombsLeft').textContent = bombsLeft;
+            
+            // Статистика
+            document.getElementById('cellsOpened').textContent = gameState.cellsOpened;
+            
+            // Шанс на печеньку
+            const unrevealed = gameState.totalCells - gameState.cellsOpened;
+            if (unrevealed > 0) {
+                const cookiesLeft = gameState.maxCookies - gameState.cookiesFound;
+                const chance = ((cookiesLeft / unrevealed) * 100).toFixed(1);
+                document.getElementById('cookieChance').textContent = `${chance}%`;
+            }
+            
+            document.getElementById('difficultyMultiplier').textContent = `${gameState.difficultyMultiplier.toFixed(1)}x`;
         }
         
-        function restartGame() {
-            if (confirm('Начать новую игру?')) {
-                startGame();
+        // ========== СТАТИСТИКА И ЛИДЕРБОРД ==========
+        function loadUserStats() {
+            const stats = JSON.parse(localStorage.getItem('cookies_bombs_stats') || '{}');
+            const userStats = stats[userData.id] || { bestScore: 0 };
+            
+            bestScore = userStats.bestScore || 0;
+            document.getElementById('bestScore').textContent = bestScore;
+            document.getElementById('myBestScore').textContent = bestScore;
+            
+            // Загружаем лидерборд
+            loadLeaderboard();
+        }
+        
+        function loadLeaderboard() {
+            const allStats = JSON.parse(localStorage.getItem('cookies_bombs_stats') || '{}');
+            leaderboard = [];
+            
+            // Собираем статистику всех игроков
+            for (const userId in allStats) {
+                const playerStats = allStats[userId];
+                if (playerStats && playerStats.bestScore > 0) {
+                    leaderboard.push({
+                        id: userId,
+                        firstName: playerStats.firstName || 'Игрок',
+                        username: playerStats.username || '',
+                        score: playerStats.bestScore || 0,
+                        games: playerStats.gamesPlayed || 1
+                    });
+                }
+            }
+            
+            // Сортируем по очкам
+            leaderboard.sort((a, b) => b.score - a.score);
+            
+            // Обновляем UI лидерборда
+            updateLeaderboardUI();
+        }
+        
+        function updateLeaderboardUI() {
+            const leaderboardElement = document.getElementById('leaderboard');
+            
+            if (leaderboard.length === 0) {
+                leaderboardElement.innerHTML = `
+                    <div style="padding: 40px; text-align: center; opacity: 0.7;">
+                        Пока никто не играл 😢<br>
+                        <small>Будь первым в рейтинге!</small>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            
+            leaderboard.forEach((player, index) => {
+                const isMe = player.id === userData.id;
+                const rank = index + 1;
+                const rankClass = rank <= 3 ? `style="color: ${rank === 1 ? '#FFD700' : rank === 2 ? '#C0C0C0' : '#CD7F32'}"` : '';
+                
+                const avatar = player.username 
+                    ? `<div class="default-player-avatar">${player.firstName[0].toUpperCase()}</div>`
+                    : `<div class="default-player-avatar">${player.firstName ? player.firstName[0].toUpperCase() : 'U'}</div>`;
+                
+                html += `
+                    <div class="player-row ${isMe ? 'me' : ''}">
+                        <div class="player-rank" ${rankClass}>${rank}</div>
+                        ${avatar}
+                        <div class="player-info">
+                            <div class="player-name">
+                                ${player.firstName} ${isMe ? '(Вы)' : ''}
+                                ${player.username ? `<br><small>@${player.username}</small>` : ''}
+                            </div>
+                            <div class="player-score">${player.score} очков</div>
+                            <div class="player-stats">Игр: ${player.games || 1}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            leaderboardElement.innerHTML = html;
+        }
+        
+        function saveGameResult() {
+            if (!userData.id) return;
+            
+            // Загружаем текущую статистику
+            const allStats = JSON.parse(localStorage.getItem('cookies_bombs_stats') || '{}');
+            const userStats = allStats[userData.id] || {
+                firstName: userData.firstName,
+                username: userData.username,
+                bestScore: 0,
+                gamesPlayed: 0,
+                totalScore: 0
+            };
+            
+            // Обновляем статистику
+            userStats.gamesPlayed = (userStats.gamesPlayed || 0) + 1;
+            userStats.totalScore = (userStats.totalScore || 0) + gameState.score;
+            
+            if (gameState.score > userStats.bestScore) {
+                userStats.bestScore = gameState.score;
+                bestScore = gameState.score;
+                document.getElementById('bestScore').textContent = bestScore;
+                document.getElementById('myBestScore').textContent = bestScore;
+            }
+            
+            // Сохраняем
+            allStats[userData.id] = userStats;
+            localStorage.setItem('cookies_bombs_stats', JSON.stringify(allStats));
+            
+            // Обновляем лидерборд
+            loadLeaderboard();
+            
+            // Отправляем данные в бота (если в Telegram)
+            if (tg && userData.id !== 'unknown') {
+                try {
+                    const data = {
+                        action: 'game_result',
+                        userId: userData.id,
+                        username: userData.username,
+                        firstName: userData.firstName,
+                        score: gameState.score,
+                        bombs: gameState.bombs,
+                        cookiesFound: gameState.cookiesFound,
+                        maxCookies: gameState.maxCookies,
+                        gameWon: gameState.gameWon,
+                        timestamp: Date.now()
+                    };
+                    
+                    tg.sendData(JSON.stringify(data));
+                    console.log("📨 Данные отправлены боту");
+                } catch (e) {
+                    console.log("⚠️ Не удалось отправить данные боту:", e);
+                }
             }
         }
         
-        // ========== УПРАВЛЕНИЕ ЭКРАНАМИ ==========
-        function showGameScreen() {
-            hideAllScreens();
-            document.getElementById('gameScreen').style.display = 'block';
-            currentScreen = 'game';
-        }
-        
-        function showMenu() {
-            hideAllScreens();
-            document.getElementById('menuScreen').style.display = 'block';
-            currentScreen = 'menu';
-            initMenu();
-        }
-        
-        function showTopPlayers() {
-            hideAllScreens();
-            document.getElementById('topScreen').style.display = 'block';
-            currentScreen = 'top';
-            // Здесь можно загрузить список топ игроков
-        }
-        
-        function showSettings() {
-            hideAllScreens();
-            document.getElementById('settingsScreen').style.display = 'block';
-            currentScreen = 'settings';
-        }
-        
-        function hideAllScreens() {
-            document.getElementById('menuScreen').style.display = 'none';
-            document.getElementById('gameScreen').style.display = 'none';
-            document.getElementById('topScreen').style.display = 'none';
-            document.getElementById('settingsScreen').style.display = 'none';
-        }
-        
-        // ========== НАСТРОЙКИ И СОХРАНЕНИЕ ==========
-        function toggleSound() {
-            soundEnabled = !soundEnabled;
-            saveSettings();
-        }
-        
-        function toggleVibration() {
-            vibrationEnabled = !vibrationEnabled;
-            saveSettings();
-        }
-        
+        // ========== НАСТРОЙКИ ==========
         function toggleTheme() {
-            const isDark = document.getElementById('themeToggle').checked;
-            document.body.style.backgroundColor = isDark ? '#222' : '#f0f0f0';
-            document.querySelector('.container').style.backgroundColor = isDark ? '#333' : 'white';
-            document.querySelector('.container').style.color = isDark ? 'white' : 'black';
-            saveSettings();
+            if (currentTheme === 'dark') {
+                document.body.classList.remove('dark-theme');
+                document.body.classList.add('light-theme');
+                currentTheme = 'light';
+            } else {
+                document.body.classList.remove('light-theme');
+                document.body.classList.add('dark-theme');
+                currentTheme = 'dark';
+            }
+            
+            localStorage.setItem('game_theme', currentTheme);
         }
         
         function loadSettings() {
-            const savedSettings = localStorage.getItem('cookieBombSettings');
-            if (savedSettings) {
-                const settings = JSON.parse(savedSettings);
-                soundEnabled = settings.sound !== false;
-                vibrationEnabled = settings.vibration !== false;
-                
-                document.getElementById('soundToggle').checked = soundEnabled;
-                document.getElementById('vibrationToggle').checked = vibrationEnabled;
-                document.getElementById('themeToggle').checked = settings.theme === 'dark';
-                
-                if (settings.theme === 'dark') {
-                    toggleTheme();
-                }
+            const savedTheme = localStorage.getItem('game_theme');
+            const savedSound = localStorage.getItem('game_sound');
+            
+            if (savedTheme === 'light') {
+                document.getElementById('themeToggle').checked = true;
+                toggleTheme();
+            }
+            
+            if (savedSound === 'false') {
+                document.getElementById('soundToggle').checked = false;
+                soundEnabled = false;
             }
         }
         
         function saveSettings() {
-            const settings = {
-                sound: soundEnabled,
-                vibration: vibrationEnabled,
-                theme: document.getElementById('themeToggle').checked ? 'dark' : 'light'
+            localStorage.setItem('game_theme', currentTheme);
+            localStorage.setItem('game_sound', soundEnabled.toString());
+            showAlert('Настройки сохранены!', 'success');
+            showScreen('menu');
+        }
+        
+        function resetStats() {
+            if (confirm('Вы уверены, что хотите сбросить всю статистику?')) {
+                localStorage.removeItem('cookies_bombs_stats');
+                bestScore = 0;
+                document.getElementById('bestScore').textContent = '0';
+                document.getElementById('myBestScore').textContent = '0';
+                loadLeaderboard();
+                showAlert('Статистика сброшена!', 'success');
+            }
+        }
+        
+        // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
+        function showScreen(screenName) {
+            document.querySelectorAll('.screen-container').forEach(screen => {
+                screen.classList.add('hidden');
+            });
+            
+            document.getElementById(screenName + 'Screen').classList.remove('hidden');
+            currentScreen = screenName;
+            
+            if (screenName === 'top') {
+                updateLeaderboardUI();
+            }
+        }
+        
+        function showAlert(message, type = 'info') {
+            const alert = document.getElementById('alertMessage');
+            alert.textContent = message;
+            alert.className = `alert alert-${type}`;
+            alert.classList.remove('hidden');
+            
+            setTimeout(() => {
+                alert.classList.add('hidden');
+            }, 3000);
+        }
+        
+        // ========== ИНИЦИАЛИЗАЦИЯ ==========
+        function init() {
+            initTelegram();
+            loadSettings();
+            
+            // Слайдер бомб (максимум 24!)
+            const bombSlider = document.getElementById('bombSlider');
+            const bombCountDisplay = document.getElementById('bombCountDisplay');
+            const sliderValue = document.getElementById('sliderValue');
+            const cookieCountDisplay = document.getElementById('cookieCountDisplay');
+            
+            function updateSlider() {
+                const bombs = parseInt(bombSlider.value);
+                const cookies = GRID_SIZE * GRID_SIZE - bombs;
+                
+                bombCountDisplay.textContent = bombs;
+                sliderValue.textContent = bombs;
+                cookieCountDisplay.textContent = cookies;
+            }
+            
+            bombSlider.addEventListener('input', updateSlider);
+            updateSlider();
+            
+            // Кнопки
+            document.getElementById('startGameBtn').onclick = () => {
+                initGame();
+                showScreen('game');
             };
-            localStorage.setItem('cookieBombSettings', JSON.stringify(settings));
+            
+            document.getElementById('topPlayersBtn').onclick = () => {
+                showScreen('top');
+            };
+            
+            document.getElementById('settingsBtn').onclick = () => {
+                showScreen('settings');
+            };
+            
+            document.getElementById('restartGameBtn').onclick = () => {
+                initGame();
+            };
+            
+            document.getElementById('backToMenuBtn').onclick = () => {
+                showScreen('menu');
+            };
+            
+            document.getElementById('backFromTopBtn').onclick = () => {
+                showScreen('menu');
+            };
+            
+            document.getElementById('saveSettingsBtn').onclick = saveSettings;
+            document.getElementById('cancelSettingsBtn').onclick = () => {
+                showScreen('menu');
+            };
+            document.getElementById('resetStatsBtn').onclick = resetStats;
+            
+            // Переключатели
+            document.getElementById('themeToggle').onchange = toggleTheme;
+            document.getElementById('soundToggle').onchange = (e) => {
+                soundEnabled = e.target.checked;
+            };
+            
+            // Инициализируем игру
+            initGame();
         }
         
-        function saveBestScore() {
-            if (gameState.score > bestScore) {
-                bestScore = gameState.score;
-                localStorage.setItem('cookieBombBestScore', bestScore);
-                document.getElementById('bestScore').textContent = bestScore;
-            }
-        }
-        
-        function loadBestScore() {
-            const savedScore = localStorage.getItem('cookieBombBestScore');
-            if (savedScore) {
-                bestScore = parseInt(savedScore);
-                document.getElementById('bestScore').textContent = bestScore;
-            }
-        }
+        // Запускаем игру при загрузке страницы
+        window.onload = init;
     </script>
 </body>
 </html>
