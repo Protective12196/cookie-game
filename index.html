@@ -1274,17 +1274,15 @@
             // Обновляем лидерборд
             loadLeaderboard();
             
-            // Отправляем данные в бота (если в Telegram)
+            // Отправляем данные в админ-бота (если в Telegram)
             if (tg && userData.id !== 'unknown') {
                 try {
-                    const data = {
+                    const adminData = {
                         action: 'game_result',
                         userId: userData.id,
-                        username: userData.username,
+                        username: userData.username || '',
                         firstName: userData.firstName,
                         score: gameState.score,
-                        totalScore: userStats.totalScore,
-                        gamesPlayed: userStats.gamesPlayed,
                         bombs: gameState.bombs,
                         cookiesFound: gameState.cookiesFound,
                         maxCookies: gameState.maxCookies,
@@ -1292,10 +1290,11 @@
                         timestamp: Date.now()
                     };
                     
-                    tg.sendData(JSON.stringify(data));
-                    console.log("📨 Данные отправлены боту");
+                    // Отправляем данные в админ-бота
+                    tg.sendData(JSON.stringify(adminData));
+                    console.log("📊 Статистика отправлена в админ-панель");
                 } catch (e) {
-                    console.log("⚠️ Не удалось отправить данные боту:", e);
+                    console.log("⚠️ Не удалось отправить статистику:", e);
                 }
             }
         }
