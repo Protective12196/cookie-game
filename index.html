@@ -83,9 +83,9 @@
         .user-stats {
             display: flex;
             align-items: center;
-            margin-right: 25px; /* Увеличил отступ справа */
+            margin-right: 25px;
             text-align: right;
-            gap: 5px; /* Добавил отступ между словами и числом */
+            gap: 5px;
         }
         
         .avatar {
@@ -136,7 +136,7 @@
         }
         
         h1 {
-            font-size: 1.8em; /* Еще уменьшил заголовок */
+            font-size: 1.8em;
             margin-bottom: 25px;
             text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
             display: flex;
@@ -601,7 +601,7 @@
             }
             
             h1 {
-                font-size: 1.5em; /* Уменьшил для мобильных */
+                font-size: 1.5em;
             }
             
             .btn {
@@ -650,15 +650,13 @@
     <div class="tg-header hidden" id="tgHeader">
         <div class="user-info">
             <div class="default-avatar" id="userAvatar">U</div>
-            <div>
-                <div id="username" style="font-weight: bold;">Игрок</div>
-                <div style="font-size: 12px; opacity: 0.8;">ID: <span id="userid">---</span></div>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div id="username" style="font-weight: bold; font-size: 16px;">Игрок</div>
+                <div class="user-stats" style="margin: 0;">
+                    <div style="font-size: 16px; font-weight: bold; color: var(--text-dark);">Всего: </div>
+                    <div style="font-size: 16px; font-weight: bold; color: var(--success);" id="tgTotalScore">0</div>
+                </div>
             </div>
-        </div>
-        
-        <div class="user-stats">
-            <div style="font-size: 16px; font-weight: bold; color: var(--text-dark);">Всего: </div>
-            <div style="font-size: 16px; font-weight: bold; color: var(--success);" id="tgTotalScore">0</div>
         </div>
         
         <div class="tg-buttons">
@@ -871,9 +869,8 @@
                     
                     console.log("👤 Пользователь:", userData);
                     
-                    // Обновляем UI
+                    // Обновляем UI - только имя, без ID
                     document.getElementById('username').textContent = userData.firstName;
-                    document.getElementById('userid').textContent = userData.id;
                     
                     // Аватар
                     updateAvatar(userData);
