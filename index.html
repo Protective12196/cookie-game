@@ -124,6 +124,7 @@
         
         button.share {
             background: #2196F3;
+            display: none;
         }
         
         button.share:hover {
@@ -151,8 +152,20 @@
             display: none;
         }
         
-        .bomb-slider-container {
+        /* Стили для меню и настроек */
+        .menu-screen {
+            text-align: center;
+        }
+        
+        .difficulty {
             margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+        }
+        
+        .bomb-slider-container {
+            margin: 20px 0;
             padding: 15px;
             background: rgba(0, 0, 0, 0.2);
             border-radius: 10px;
@@ -197,6 +210,81 @@
             font-size: 16px;
         }
         
+        .menu-buttons {
+            margin: 30px 0;
+        }
+        
+        .menu-btn {
+            display: block;
+            width: 100%;
+            margin: 10px 0;
+            padding: 15px;
+            font-size: 18px;
+        }
+        
+        .settings-screen {
+            display: none;
+        }
+        
+        .settings-option {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            margin: 10px 0;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+        }
+        
+        .theme-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 30px;
+        }
+        
+        .theme-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider-switch {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        
+        .slider-switch:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider-switch {
+            background-color: #4CAF50;
+        }
+        
+        input:checked + .slider-switch:before {
+            transform: translateX(30px);
+        }
+        
+        .game-screen {
+            display: none;
+        }
+        
         @media (max-width: 400px) {
             .game-board {
                 gap: 5px;
@@ -213,308 +301,444 @@
             h1 {
                 font-size: 24px;
             }
+            
+            button {
+                padding: 10px 15px;
+                font-size: 14px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🍪 Печеньки и Бомбы 💣</h1>
-        
-        <div class="bomb-slider-container">
-            <h3>Выберите количество бомб:</h3>
-            <div class="slider-value" id="bombValue">5</div>
-            <input type="range" id="bombSlider" min="1" max="24" value="5">
-            <div class="slider-labels">
-                <span>1</span>
-                <span style="color: #FF6B6B">💣 Бомбы</span>
-                <span>24</span>
+        <!-- МЕНЮ -->
+        <div class="menu-screen" id="menuScreen">
+            <h1>🍪 Печеньки и Бомбы 💣</h1>
+            
+            <div class="user-info" style="text-align: center; margin-bottom: 25px;">
+                <div style="display: inline-block; padding: 10px 20px; background: rgba(0,0,0,0.3); border-radius: 10px;">
+                    <div style="font-size: 14px;">Лучший счет</div>
+                    <div style="font-size: 28px; font-weight: bold; color: #FFD700;" id="bestScore">0</div>
+                </div>
             </div>
-            <div class="cookie-count">
-                Печенек: <span id="cookieCount">20</span>
+            
+            <div class="bomb-slider-container">
+                <h3>Количество бомб: <span id="bombCountDisplay">5</span></h3>
+                <div class="slider-value" id="sliderValue">5</div>
+                <input type="range" id="bombSlider" min="1" max="24" value="5">
+                <div class="slider-labels">
+                    <span>1</span>
+                    <span style="color: #FF6B6B">💣 Бомбы</span>
+                    <span>24</span>
+                </div>
+                <div class="cookie-count">
+                    Печенек: <span id="cookieCountDisplay">20</span>
+                </div>
+            </div>
+            
+            <div class="menu-buttons">
+                <button class="btn-primary menu-btn" id="startGameBtn">
+                    🎮 НАЧАТЬ ИГРУ
+                </button>
+                <button class="menu-btn" id="topPlayersBtn">
+                    🏆 ТОП ИГРОКОВ
+                </button>
+                <button class="menu-btn" id="settingsBtn">
+                    ⚙️ НАСТРОЙКИ
+                </button>
             </div>
         </div>
         
-        <div class="game-info">
-            <div class="info-item">
-                <div>Счет</div>
-                <div class="info-value" id="score">0</div>
+        <!-- ИГРА -->
+        <div class="game-screen" id="gameScreen">
+            <div class="game-info">
+                <div class="info-item">
+                    <div>Счет</div>
+                    <div class="info-value" id="score">0</div>
+                </div>
+                <div class="info-item">
+                    <div>Печенек</div>
+                    <div class="info-value" id="cookies">0/0</div>
+                </div>
+                <div class="info-item">
+                    <div>Бомб</div>
+                    <div class="info-value" id="bombs">0/0</div>
+                </div>
             </div>
-            <div class="info-item">
-                <div>Печенек</div>
-                <div class="info-value" id="cookies">0/0</div>
+            
+            <div class="message win-message" id="winMessage">
+                🎉 ПОБЕДА! Все печеньки найдены!
             </div>
-            <div class="info-item">
-                <div>Бомб</div>
-                <div class="info-value" id="bombs">0/0</div>
+            
+            <div class="message lose-message" id="loseMessage">
+                💥 БОМБА! Игра окончена!
+            </div>
+            
+            <div class="game-board" id="gameBoard">
+                <!-- Клетки будут созданы через JavaScript -->
+            </div>
+            
+            <div class="controls">
+                <button id="hintBtn">💡 Подсказка</button>
+                <button id="restartBtn">🔄 Новая игра</button>
+                <button class="share" id="shareBtn">📢 Поделиться</button>
+            </div>
+            
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="menu-btn" id="backToMenuBtn">
+                    ↩️ В МЕНЮ
+                </button>
             </div>
         </div>
         
-        <div class="message win-message" id="winMessage">
-            🎉 ПОБЕДА! Все печеньки найдены!
-        </div>
-        
-        <div class="message lose-message" id="loseMessage">
-            💥 БОМБА! Игра окончена!
-        </div>
-        
-        <div class="game-board" id="gameBoard">
-            <!-- Клетки будут созданы через JavaScript -->
-        </div>
-        
-        <div class="controls">
-            <button id="hint">💡 Подсказка</button>
-            <button id="restart">🔄 Новая игра</button>
-            <button class="share" id="shareBtn" style="display: none;">📢 Поделиться</button>
-        </div>
-        
-        <div style="text-align: center; margin-top: 20px; font-size: 12px; opacity: 0.7;">
-            Максимум 24 бомбы
+        <!-- НАСТРОЙКИ -->
+        <div class="settings-screen" id="settingsScreen">
+            <h1>⚙️ НАСТРОЙКИ</h1>
+            
+            <div class="settings-option">
+                <div>
+                    <div style="font-weight: bold;">🌙 Тема</div>
+                    <div style="font-size: 14px; opacity: 0.8;">Светлая или темная тема</div>
+                </div>
+                <label class="theme-switch">
+                    <input type="checkbox" id="themeToggle">
+                    <span class="slider-switch"></span>
+                </label>
+            </div>
+            
+            <div class="settings-option">
+                <div>
+                    <div style="font-weight: bold;">🔊 Звуки</div>
+                    <div style="font-size: 14px; opacity: 0.8;">Включить звуковые эффекты</div>
+                </div>
+                <label class="theme-switch">
+                    <input type="checkbox" id="soundToggle" checked>
+                    <span class="slider-switch"></span>
+                </label>
+            </div>
+            
+            <div class="settings-option">
+                <div>
+                    <div style="font-weight: bold;">ℹ️ О приложении</div>
+                    <div style="font-size: 14px; opacity: 0.8;">Версия 1.2.0 • Максимум 24 бомбы</div>
+                </div>
+            </div>
+            
+            <div style="margin: 30px 0;">
+                <button class="menu-btn" id="saveSettingsBtn">
+                    💾 СОХРАНИТЬ
+                </button>
+                <button class="menu-btn" id="cancelSettingsBtn">
+                    ❌ ОТМЕНА
+                </button>
+            </div>
         </div>
     </div>
 
     <script>
-        // Инициализация Telegram Web App
-        let tg = window.Telegram.WebApp;
-        if (tg) {
-            tg.expand();
+        // ========== КОНСТАНТЫ ==========
+        const GRID_SIZE = 5;
+        const COOKIE_POINTS = 20;
+        const BOMB_MULTIPLIER = 10;
+        const WIN_BONUS = 300;
+        const MAX_BOMBS = 24;
+        
+        // ========== ПЕРЕМЕННЫЕ ==========
+        let gameState = {
+            grid: [],
+            revealed: [],
+            bombs: 5,
+            score: 0,
+            cookiesFound: 0,
+            cellsOpened: 0,
+            gameOver: false,
+            gameWon: false,
+            maxCookies: 0,
+            totalCells: GRID_SIZE * GRID_SIZE,
+            difficultyMultiplier: 1.0
+        };
+        
+        let currentScreen = 'menu';
+        let currentTheme = 'dark';
+        let soundEnabled = true;
+        let bestScore = 0;
+        
+        // ========== TELEGRAM MINI APP ==========
+        const tg = window.Telegram?.WebApp;
+        
+        function initTelegram() {
+            if (tg) {
+                tg.ready();
+                tg.expand();
+            }
+            
+            // Загружаем статистику
+            loadUserStats();
         }
         
-        // Класс игры
-        class CookieBombGame {
-            constructor() {
-                this.gridSize = 5;
-                this.bombCount = 5;
-                this.grid = [];
-                this.revealed = [];
-                this.gameOver = false;
-                this.gameWon = false;
-                this.score = 0;
-                this.cellsOpened = 0;
-                this.cookiesFound = 0;
-                this.totalCookies = this.gridSize * this.gridSize - this.bombCount;
-            }
+        // ========== ИГРОВАЯ ЛОГИКА ==========
+        function initGame() {
+            const bombs = parseInt(document.getElementById('bombSlider').value);
+            gameState = {
+                grid: [],
+                revealed: [],
+                bombs: bombs,
+                score: 0,
+                cookiesFound: 0,
+                cellsOpened: 0,
+                gameOver: false,
+                gameWon: false,
+                maxCookies: GRID_SIZE * GRID_SIZE - bombs,
+                totalCells: GRID_SIZE * GRID_SIZE,
+                difficultyMultiplier: 1.0 + (bombs / 30.0)
+            };
             
-            setupGame(bombCount) {
-                this.bombCount = bombCount;
-                this.grid = Array(this.gridSize).fill().map(() => Array(this.gridSize).fill(0));
-                this.revealed = Array(this.gridSize).fill().map(() => Array(this.gridSize).fill(false));
-                this.gameOver = false;
-                this.gameWon = false;
-                this.score = 0;
-                this.cellsOpened = 0;
-                this.cookiesFound = 0;
-                this.totalCookies = this.gridSize * this.gridSize - this.bombCount;
-                
-                // Расставляем бомбы (МАКСИМУМ 24!)
-                let bombsPlaced = 0;
-                while (bombsPlaced < this.bombCount) {
-                    const x = Math.floor(Math.random() * this.gridSize);
-                    const y = Math.floor(Math.random() * this.gridSize);
-                    if (this.grid[y][x] === 0) {
-                        this.grid[y][x] = -1;
-                        bombsPlaced++;
-                    }
-                }
-                
-                // Остальные - печеньки
-                for (let y = 0; y < this.gridSize; y++) {
-                    for (let x = 0; x < this.gridSize; x++) {
-                        if (this.grid[y][x] === 0) {
-                            this.grid[y][x] = 1;
-                        }
-                    }
+            // Создаем пустую сетку
+            for (let i = 0; i < GRID_SIZE; i++) {
+                gameState.grid[i] = [];
+                gameState.revealed[i] = [];
+                for (let j = 0; j < GRID_SIZE; j++) {
+                    gameState.grid[i][j] = 0;
+                    gameState.revealed[i][j] = false;
                 }
             }
             
-            revealCell(x, y) {
-                if (this.revealed[y][x] || this.gameOver || this.gameWon) {
-                    return null;
+            // Размещаем бомбы (МАКСИМУМ 24!)
+            let bombsPlaced = 0;
+            while (bombsPlaced < bombs) {
+                const x = Math.floor(Math.random() * GRID_SIZE);
+                const y = Math.floor(Math.random() * GRID_SIZE);
+                
+                if (gameState.grid[y][x] === 0) {
+                    gameState.grid[y][x] = -1;
+                    bombsPlaced++;
                 }
-                
-                this.revealed[y][x] = true;
-                this.cellsOpened++;
-                
-                const cellContent = this.grid[y][x];
-                
-                if (cellContent === -1) {
-                    this.gameOver = true;
-                    return { type: 'bomb', points: 0 };
-                } 
-                else if (cellContent === 1) {
-                    this.cookiesFound++;
-                    const points = 20 + (this.bombCount * 2);
-                    this.score += points;
-                    
-                    if (this.cookiesFound === this.totalCookies) {
-                        this.gameWon = true;
-                        this.score += 300;
-                        return { type: 'cookie', points: points, win: true };
-                    }
-                    
-                    return { type: 'cookie', points: points };
-                }
-                
-                return null;
             }
             
-            getBombsLeft() {
-                let bombsLeft = this.bombCount;
-                for (let y = 0; y < this.gridSize; y++) {
-                    for (let x = 0; x < this.gridSize; x++) {
-                        if (!this.revealed[y][x] && this.grid[y][x] === -1) {
-                            bombsLeft--;
-                        }
+            // Заполняем остальное печеньками
+            for (let i = 0; i < GRID_SIZE; i++) {
+                for (let j = 0; j < GRID_SIZE; j++) {
+                    if (gameState.grid[i][j] === 0) {
+                        gameState.grid[i][j] = 1;
                     }
                 }
-                return bombsLeft;
             }
             
-            getHint() {
-                const safeCells = [];
-                for (let y = 0; y < this.gridSize; y++) {
-                    for (let x = 0; x < this.gridSize; x++) {
-                        if (!this.revealed[y][x] && this.grid[y][x] === 1) {
-                            safeCells.push({ x, y });
-                        }
-                    }
-                }
-                
-                if (safeCells.length > 0) {
-                    return safeCells[Math.floor(Math.random() * safeCells.length)];
-                }
-                return null;
-            }
+            updateGameUI();
+            renderGameBoard();
         }
-
-        // Инициализация игры
-        const game = new CookieBombGame();
-        game.setupGame(5);
-
-        // DOM элементы
-        const gameBoard = document.getElementById('gameBoard');
-        const scoreElement = document.getElementById('score');
-        const cookiesElement = document.getElementById('cookies');
-        const bombsElement = document.getElementById('bombs');
-        const winMessage = document.getElementById('winMessage');
-        const loseMessage = document.getElementById('loseMessage');
-        const restartButton = document.getElementById('restart');
-        const hintButton = document.getElementById('hint');
-        const shareButton = document.getElementById('shareBtn');
-        const bombSlider = document.getElementById('bombSlider');
-        const bombValue = document.getElementById('bombValue');
-        const cookieCount = document.getElementById('cookieCount');
-
-        // Обновление слайдера
-        function updateSlider() {
-            const bombs = parseInt(bombSlider.value);
-            bombValue.textContent = bombs;
-            cookieCount.textContent = 25 - bombs;
-        }
-
-        // Создание игрового поля
-        function createGameBoard() {
-            gameBoard.innerHTML = '';
+        
+        function renderGameBoard() {
+            const board = document.getElementById('gameBoard');
+            board.innerHTML = '';
             
-            for (let y = 0; y < game.gridSize; y++) {
-                for (let x = 0; x < game.gridSize; x++) {
+            for (let i = 0; i < GRID_SIZE; i++) {
+                for (let j = 0; j < GRID_SIZE; j++) {
                     const cell = document.createElement('div');
                     cell.className = 'cell';
-                    cell.dataset.x = x;
-                    cell.dataset.y = y;
+                    cell.dataset.row = i;
+                    cell.dataset.col = j;
                     
-                    if (game.revealed[y][x]) {
-                        if (game.grid[y][x] === -1) {
-                            cell.classList.add('revealed', 'bomb');
-                            cell.textContent = '💣';
-                        } else {
-                            cell.classList.add('revealed', 'cookie');
-                            cell.textContent = '🍪';
+                    if (gameState.revealed[i][j]) {
+                        cell.classList.add('revealed');
+                        if (gameState.grid[i][j] === 1) {
+                            cell.classList.add('cookie');
+                            cell.innerHTML = '🍪';
+                        } else if (gameState.grid[i][j] === -1) {
+                            cell.classList.add('bomb');
+                            cell.innerHTML = '💣';
                         }
                     } else {
                         cell.textContent = '⬜';
                     }
                     
-                    cell.addEventListener('click', () => handleCellClick(x, y));
-                    gameBoard.appendChild(cell);
+                    cell.onclick = () => handleCellClick(i, j);
+                    board.appendChild(cell);
                 }
             }
-            
-            updateGameInfo();
         }
-
-        // Обновление информации о игре
-        function updateGameInfo() {
-            scoreElement.textContent = game.score;
-            cookiesElement.textContent = `${game.cookiesFound}/${game.totalCookies}`;
-            bombsElement.textContent = `${game.getBombsLeft()}/${game.bombCount}`;
-            
-            if (game.gameWon) {
-                winMessage.style.display = 'block';
-                loseMessage.style.display = 'none';
-                shareButton.style.display = 'inline-block';
-            } else if (game.gameOver) {
-                winMessage.style.display = 'none';
-                loseMessage.style.display = 'block';
-                shareButton.style.display = 'inline-block';
-            } else {
-                winMessage.style.display = 'none';
-                loseMessage.style.display = 'none';
-                shareButton.style.display = 'none';
+        
+        function handleCellClick(row, col) {
+            if (gameState.gameOver || gameState.gameWon || gameState.revealed[row][col]) {
+                return;
             }
-        }
-
-        // Обработка клика по клетке
-        function handleCellClick(x, y) {
-            if (game.gameOver || game.gameWon) return;
             
-            const result = game.revealCell(x, y);
+            gameState.revealed[row][col] = true;
+            gameState.cellsOpened++;
             
-            if (result) {
-                if (result.type === 'cookie') {
-                    showMessage(`🍪 Найдена печенька! +${result.points} очков`);
-                    if (result.win) {
-                        showMessage('🎉 ПОБЕДА! Все печеньки найдены! +300 бонусных очков');
+            const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+            cell.classList.add('revealed');
+            
+            if (gameState.grid[row][col] === 1) {
+                // Печенька
+                cell.classList.add('cookie');
+                cell.innerHTML = '🍪';
+                
+                gameState.cookiesFound++;
+                
+                // Расчет очков
+                const basePoints = COOKIE_POINTS;
+                const bombBonus = gameState.bombs * BOMB_MULTIPLIER;
+                let pointsForCookie = Math.floor(basePoints + (bombBonus / gameState.maxCookies));
+                pointsForCookie = Math.floor(pointsForCookie * gameState.difficultyMultiplier);
+                
+                gameState.score += Math.max(1, pointsForCookie);
+                
+                // Проверка победы
+                if (gameState.cookiesFound === gameState.maxCookies) {
+                    gameState.gameWon = true;
+                    const winBonus = Math.floor(WIN_BONUS * gameState.difficultyMultiplier);
+                    const bombCompletionBonus = gameState.bombs * BOMB_MULTIPLIER * 2;
+                    gameState.score += winBonus + bombCompletionBonus;
+                    
+                    showMessage('🎉 ПОБЕДА! Вы нашли все печеньки!');
+                    saveGameResult();
+                    document.getElementById('shareBtn').style.display = 'inline-block';
+                }
+                
+            } else if (gameState.grid[row][col] === -1) {
+                // Бомба
+                cell.classList.add('bomb');
+                cell.innerHTML = '💣';
+                
+                gameState.gameOver = true;
+                
+                // Открываем все клетки
+                for (let i = 0; i < GRID_SIZE; i++) {
+                    for (let j = 0; j < GRID_SIZE; j++) {
+                        gameState.revealed[i][j] = true;
                     }
-                } else if (result.type === 'bomb') {
-                    showMessage('💥 БОМБА! Игра окончена!');
                 }
+                
+                showMessage('💥 БОМБА! Игра окончена!');
+                saveGameResult();
+                document.getElementById('shareBtn').style.display = 'inline-block';
             }
             
-            createGameBoard();
+            updateGameUI();
+            renderGameBoard();
         }
-
-        // Показать сообщение
+        
+        function updateGameUI() {
+            document.getElementById('score').textContent = gameState.score;
+            document.getElementById('cookies').textContent = `${gameState.cookiesFound}/${gameState.maxCookies}`;
+            
+            // Считаем сколько бомб осталось
+            let bombsLeft = gameState.bombs;
+            for (let i = 0; i < GRID_SIZE; i++) {
+                for (let j = 0; j < GRID_SIZE; j++) {
+                    if (!gameState.revealed[i][j] && gameState.grid[i][j] === -1) {
+                        bombsLeft--;
+                    }
+                }
+            }
+            document.getElementById('bombs').textContent = `${bombsLeft}/${gameState.bombs}`;
+            
+            // Сообщения
+            if (gameState.gameWon) {
+                document.getElementById('winMessage').style.display = 'block';
+                document.getElementById('loseMessage').style.display = 'none';
+            } else if (gameState.gameOver) {
+                document.getElementById('winMessage').style.display = 'none';
+                document.getElementById('loseMessage').style.display = 'block';
+            } else {
+                document.getElementById('winMessage').style.display = 'none';
+                document.getElementById('loseMessage').style.display = 'none';
+            }
+        }
+        
+        // ========== СТАТИСТИКА ==========
+        function loadUserStats() {
+            const stats = JSON.parse(localStorage.getItem('cookies_bombs_stats') || '{}');
+            const userId = tg?.initDataUnsafe?.user?.id || 'browser_user';
+            const userStats = stats[userId] || { bestScore: 0 };
+            
+            bestScore = userStats.bestScore || 0;
+            document.getElementById('bestScore').textContent = bestScore;
+        }
+        
+        function saveGameResult() {
+            const userId = tg?.initDataUnsafe?.user?.id || 'browser_user';
+            const userName = tg?.initDataUnsafe?.user?.first_name || 'Игрок';
+            
+            // Загружаем текущую статистику
+            const allStats = JSON.parse(localStorage.getItem('cookies_bombs_stats') || '{}');
+            const userStats = allStats[userId] || {
+                name: userName,
+                bestScore: 0,
+                gamesPlayed: 0,
+                totalScore: 0
+            };
+            
+            // Обновляем статистику
+            userStats.gamesPlayed = (userStats.gamesPlayed || 0) + 1;
+            userStats.totalScore = (userStats.totalScore || 0) + gameState.score;
+            
+            if (gameState.score > userStats.bestScore) {
+                userStats.bestScore = gameState.score;
+                bestScore = gameState.score;
+                document.getElementById('bestScore').textContent = bestScore;
+            }
+            
+            // Сохраняем
+            allStats[userId] = userStats;
+            localStorage.setItem('cookies_bombs_stats', JSON.stringify(allStats));
+        }
+        
+        // ========== НАСТРОЙКИ ==========
+        function loadSettings() {
+            const savedTheme = localStorage.getItem('game_theme');
+            const savedSound = localStorage.getItem('game_sound');
+            
+            if (savedTheme === 'light') {
+                document.getElementById('themeToggle').checked = true;
+                toggleTheme();
+            }
+            
+            if (savedSound === 'false') {
+                document.getElementById('soundToggle').checked = false;
+                soundEnabled = false;
+            }
+        }
+        
+        function toggleTheme() {
+            if (currentTheme === 'dark') {
+                currentTheme = 'light';
+                document.body.style.background = 'linear-gradient(135deg, #f0f2f5 0%, #d0d7e0 100%)';
+                document.body.style.color = '#1c1c1c';
+            } else {
+                currentTheme = 'dark';
+                document.body.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                document.body.style.color = 'white';
+            }
+        }
+        
+        function saveSettings() {
+            localStorage.setItem('game_theme', currentTheme);
+            localStorage.setItem('game_sound', soundEnabled.toString());
+            showMessage('Настройки сохранены!');
+            showScreen('menu');
+        }
+        
+        // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
+        function showScreen(screenName) {
+            document.getElementById('menuScreen').style.display = 'none';
+            document.getElementById('gameScreen').style.display = 'none';
+            document.getElementById('settingsScreen').style.display = 'none';
+            
+            document.getElementById(screenName + 'Screen').style.display = 'block';
+            currentScreen = screenName;
+        }
+        
         function showMessage(text) {
-            // Простое сообщение
-            const message = document.createElement('div');
-            message.textContent = text;
-            message.style.cssText = `
-                position: fixed;
-                top: 20px;
-                left: 50%;
-                transform: translateX(-50%);
-                background: #4CAF50;
-                color: white;
-                padding: 10px 20px;
-                border-radius: 5px;
-                z-index: 1000;
-                animation: fadeIn 0.3s;
-            `;
-            
-            document.body.appendChild(message);
-            
-            setTimeout(() => {
-                message.style.animation = 'fadeOut 0.3s';
-                setTimeout(() => message.remove(), 300);
-            }, 2000);
+            alert(text);
         }
-
-        // Поделиться результатом
-        function shareResult() {
+        
+        function shareScore() {
             const gameUrl = "https://protective12196.github.io/cookie-game/index.html";
             const botUsername = "@cookie_and_bomb_bot";
             
-            let shareText = `🍪💣 *Мой рекорд в игре "Печеньки и Бомбы": ${game.score} очков!*\n\n`;
+            let shareText = `🍪💣 *Мой рекорд в игре "Печеньки и Бомбы": ${gameState.score} очков!*\n\n`;
             shareText += `🎮 *Хочешь побить мой результат?*\n`;
             shareText += `Ищи бота: ${botUsername}\n\n`;
             shareText += `#ПеченькиИБомбы #TelegramGame`;
@@ -538,67 +762,75 @@
                     .catch(() => alert(shareText));
             }
         }
-
-        // Инициализация
-        document.addEventListener('DOMContentLoaded', () => {
-            createGameBoard();
+        
+        // ========== ИНИЦИАЛИЗАЦИЯ ==========
+        function init() {
+            initTelegram();
+            loadSettings();
+            
+            // Слайдер бомб (МАКСИМУМ 24!)
+            const bombSlider = document.getElementById('bombSlider');
+            const bombCountDisplay = document.getElementById('bombCountDisplay');
+            const sliderValue = document.getElementById('sliderValue');
+            const cookieCountDisplay = document.getElementById('cookieCountDisplay');
+            
+            function updateSlider() {
+                const bombs = parseInt(bombSlider.value);
+                const cookies = GRID_SIZE * GRID_SIZE - bombs;
+                
+                bombCountDisplay.textContent = bombs;
+                sliderValue.textContent = bombs;
+                cookieCountDisplay.textContent = cookies;
+            }
+            
+            bombSlider.addEventListener('input', updateSlider);
             updateSlider();
             
-            // Слайдер бомб
-            bombSlider.addEventListener('input', updateSlider);
-            bombSlider.addEventListener('change', () => {
-                const bombs = parseInt(bombSlider.value);
-                game.setupGame(bombs);
-                createGameBoard();
-                showMessage(`🎮 Новая игра: ${bombs} бомб`);
-            });
+            // Кнопки меню
+            document.getElementById('startGameBtn').onclick = () => {
+                initGame();
+                showScreen('game');
+            };
             
-            // Кнопка новой игры
-            restartButton.addEventListener('click', () => {
-                const bombs = parseInt(bombSlider.value);
-                game.setupGame(bombs);
-                createGameBoard();
-                showMessage('🔄 Новая игра началась!');
-            });
+            document.getElementById('settingsBtn').onclick = () => {
+                showScreen('settings');
+            };
             
-            // Подсказка
-            hintButton.addEventListener('click', () => {
-                if (game.gameOver || game.gameWon) return;
-                
-                const hint = game.getHint();
-                if (hint) {
-                    const cell = document.querySelector(`.cell[data-x="${hint.x}"][data-y="${hint.y}"]`);
-                    cell.style.boxShadow = '0 0 15px gold';
-                    cell.style.transform = 'scale(1.1)';
-                    
-                    setTimeout(() => {
-                        cell.style.boxShadow = '';
-                        cell.style.transform = '';
-                    }, 2000);
-                    
-                    showMessage('💡 Подсказка: эта клетка безопасна!');
-                } else {
-                    showMessage('ℹ️ Подсказки закончились!');
-                }
-            });
+            document.getElementById('topPlayersBtn').onclick = () => {
+                alert('Функция "Топ игроков" в разработке!');
+            };
             
-            // Поделиться
-            shareButton.addEventListener('click', shareResult);
+            // Кнопки игры
+            document.getElementById('restartBtn').onclick = () => {
+                initGame();
+                document.getElementById('shareBtn').style.display = 'none';
+            };
             
-            // Добавляем стили для анимаций
-            const style = document.createElement('style');
-            style.textContent = `
-                @keyframes fadeIn {
-                    from { opacity: 0; transform: translate(-50%, -20px); }
-                    to { opacity: 1; transform: translate(-50%, 0); }
-                }
-                @keyframes fadeOut {
-                    from { opacity: 1; transform: translate(-50%, 0); }
-                    to { opacity: 0; transform: translate(-50%, -20px); }
-                }
-            `;
-            document.head.appendChild(style);
-        });
+            document.getElementById('hintBtn').onclick = () => {
+                alert('💡 Ищи клетки по углам - там реже бывают бомбы!');
+            };
+            
+            document.getElementById('shareBtn').onclick = shareScore;
+            
+            document.getElementById('backToMenuBtn').onclick = () => {
+                showScreen('menu');
+            };
+            
+            // Кнопки настроек
+            document.getElementById('saveSettingsBtn').onclick = saveSettings;
+            document.getElementById('cancelSettingsBtn').onclick = () => {
+                showScreen('menu');
+            };
+            
+            // Переключатели
+            document.getElementById('themeToggle').onchange = toggleTheme;
+            document.getElementById('soundToggle').onchange = (e) => {
+                soundEnabled = e.target.checked;
+            };
+        }
+        
+        // Запускаем игру при загрузке страницы
+        window.onload = init;
     </script>
 </body>
 </html>
