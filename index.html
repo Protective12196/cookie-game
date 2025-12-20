@@ -115,6 +115,15 @@
             gap: 10px;
         }
         
+        /* ДОБАВЬ ЭТОТ CSS */
+        .dark-theme .total-text {
+            color: var(--text-dark);
+        }
+        
+        .light-theme .total-text {
+            color: var(--text-light);
+        }
+        
         .screen-container {
             max-width: 500px;
             margin: 0 auto;
@@ -653,7 +662,7 @@
             <div style="display: flex; align-items: center; gap: 15px;">
                 <div id="username" style="font-weight: bold; font-size: 16px;">Игрок</div>
                 <div class="user-stats" style="margin: 0;">
-                    <div style="font-size: 16px; font-weight: bold; color: var(--text-dark);">Всего: </div>
+                    <div style="font-size: 16px; font-weight: bold;" class="total-text">Всего: </div>
                     <div style="font-size: 16px; font-weight: bold; color: var(--success);" id="tgTotalScore">0</div>
                 </div>
             </div>
