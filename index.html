@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🍪 Печеньки и Бомбы 💣</title>
+    <title>🍪 CookieBomb 💣</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         * {
@@ -28,8 +28,6 @@
             --success: #4CAF50;
             --danger: #dc3545;
             --warning: #ff9800;
-            --glass-blur: none;
-            --glass-opacity: 0.8;
         }
         
         body {
@@ -48,26 +46,6 @@
         body.light-theme {
             background: linear-gradient(135deg, var(--bg-light), #d0d7e0);
             color: var(--text-light);
-        }
-        
-        body.glass-effect .screen-container,
-        body.glass-effect .tg-header {
-            backdrop-filter: var(--glass-blur);
-            -webkit-backdrop-filter: var(--glass-blur);
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-        
-        body.dark-theme.glass-effect .screen-container,
-        body.dark-theme.glass-effect .tg-header {
-            background: rgba(0, 0, 0, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        body.light-theme.glass-effect .screen-container,
-        body.light-theme.glass-effect .tg-header {
-            background: rgba(255, 255, 255, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.4);
         }
         
         .hidden {
@@ -173,8 +151,6 @@
             align-items: center;
             justify-content: center;
             gap: 10px;
-            white-space: nowrap;
-            overflow: hidden;
         }
         
         h2 {
@@ -697,7 +673,7 @@
     </div>
     
     <div class="screen-container" id="menuScreen">
-        <h1>🍪 Печеньки и Бомбы 💣</h1>
+        <h1>🍪 CookieBomb 💣</h1>
         
         <div class="bomb-slider-container">
             <h3>Количество бомб: <span id="bombCountDisplay">5</span></h3>
@@ -827,19 +803,22 @@
             
             <div class="settings-option">
                 <div>
-                    <div style="font-weight: bold;">🔮 Liquid Glass</div>
-                    <div style="font-size: 14px; opacity: 0.8;">Стеклянный эффект интерфейса</div>
+                    <div style="font-weight: bold;">🎨 Цветовая тема</div>
+                    <div style="font-size: 14px; opacity: 0.8;">Выберите цвет акцента</div>
                 </div>
-                <label class="theme-switch">
-                    <input type="checkbox" id="glassToggle">
-                    <span class="slider"></span>
-                </label>
+                <select id="accentColor" style="padding: 8px; border-radius: 8px; background: var(--panel-dark); color: var(--text-dark); border: 1px solid rgba(255,255,255,0.2);">
+                    <option value="#0088cc">Синий</option>
+                    <option value="#4CAF50">Зеленый</option>
+                    <option value="#FF9800">Оранжевый</option>
+                    <option value="#9C27B0">Фиолетовый</option>
+                    <option value="#E91E63">Розовый</option>
+                </select>
             </div>
             
             <div class="settings-option">
                 <div>
                     <div style="font-weight: bold;">ℹ️ О приложении</div>
-                    <div style="font-size: 14px; opacity: 0.8;">Версия 1.2.0</div>
+                    <div style="font-size: 14px; opacity: 0.8;">CookieBomb v1.3.0</div>
                 </div>
             </div>
         </div>
@@ -882,7 +861,7 @@
         let currentScreen = 'menu';
         let currentTheme = 'dark';
         let soundEnabled = true;
-        let glassEffectEnabled = false;
+        let accentColor = '#0088cc';
         let userData = {};
         let leaderboard = [];
         let totalScore = 0;
@@ -957,25 +936,21 @@
         }
         
         function shareScore() {
-            const botUsername = "@cookie_and_bomb_bot"; // Юзернейм бота
+            const botUsername = "@cookie_and_bomb_bot";
             
-            let shareText = `🍪💣 Мой рекорд в игре "Печеньки и Бомбы": ${totalScore} очков!\n\n`;
+            let shareText = `🍪💣 Мой рекорд в игре "CookieBomb": ${totalScore} очков!\n\n`;
             shareText += `🎮 Попробуй побить мой результат!\n`;
             shareText += `${botUsername}`;
             
             if (tg) {
-                // В Telegram используем tg.shareURL или отправляем в чат
                 if (tg.shareURL) {
-                    // Если доступно API для шаринга
                     tg.shareURL("", shareText);
                 } else {
-                    // Альтернативный способ - копируем в буфер обмена
                     navigator.clipboard.writeText(shareText).then(() => {
                         showAlert("📋 Ссылка скопирована! Отправляй друзьям!", 'success');
                     });
                 }
             } else {
-                // Для браузера копируем в буфер обмена
                 navigator.clipboard.writeText(shareText).then(() => {
                     showAlert("📋 Ссылка скопирована! Отправляй друзьям!", 'success');
                 });
@@ -1154,7 +1129,7 @@
         
         // ========== СТАТИСТИКА И ЛИДЕРБОРД ==========
         function loadUserStats() {
-            const stats = JSON.parse(localStorage.getItem('cookies_bombs_stats') || '{}');
+            const stats = JSON.parse(localStorage.getItem('cookiebomb_stats') || '{}');
             const userStats = stats[userData.id] || { 
                 totalScore: 0,
                 gamesPlayed: 0 
@@ -1176,7 +1151,7 @@
         }
         
         function loadLeaderboard() {
-            const allStats = JSON.parse(localStorage.getItem('cookies_bombs_stats') || '{}');
+            const allStats = JSON.parse(localStorage.getItem('cookiebomb_stats') || '{}');
             leaderboard = [];
             
             // Собираем статистику всех игроков
@@ -1246,8 +1221,8 @@
         function saveGameResult() {
             if (!userData.id) return;
             
-            // Загружаем текущую статистику
-            const allStats = JSON.parse(localStorage.getItem('cookies_bombs_stats') || '{}');
+            // Сохраняем в localStorage
+            const allStats = JSON.parse(localStorage.getItem('cookiebomb_stats') || '{}');
             const userStats = allStats[userData.id] || {
                 firstName: userData.firstName,
                 username: userData.username,
@@ -1255,26 +1230,20 @@
                 gamesPlayed: 0
             };
             
-            // Обновляем статистику - ВСЕ ОЧКИ СУММИРУЮТСЯ
             userStats.gamesPlayed = (userStats.gamesPlayed || 0) + 1;
-            userStats.totalScore = (userStats.totalScore || 0) + gameState.score; // Суммируем очки
+            userStats.totalScore = (userStats.totalScore || 0) + gameState.score;
             
-            // Сохраняем обновленные суммы
             totalScore = userStats.totalScore;
             
-            // Обновляем UI в Telegram шапке
             updateTotalScoreDisplay();
-            
             document.getElementById('myTotalScore').textContent = totalScore;
             
-            // Сохраняем в localStorage
             allStats[userData.id] = userStats;
-            localStorage.setItem('cookies_bombs_stats', JSON.stringify(allStats));
+            localStorage.setItem('cookiebomb_stats', JSON.stringify(allStats));
             
-            // Обновляем лидерборд
             loadLeaderboard();
             
-            // Отправляем данные в админ-бота (если в Telegram)
+            // Отправляем данные в бота
             if (tg && userData.id !== 'unknown') {
                 try {
                     const adminData = {
@@ -1290,9 +1259,8 @@
                         timestamp: Date.now()
                     };
                     
-                    // Отправляем данные в админ-бота
                     tg.sendData(JSON.stringify(adminData));
-                    console.log("📊 Статистика отправлена в админ-панель");
+                    console.log("📊 Статистика отправлена в бота");
                 } catch (e) {
                     console.log("⚠️ Не удалось отправить статистику:", e);
                 }
@@ -1311,24 +1279,29 @@
                 currentTheme = 'dark';
             }
             
-            localStorage.setItem('game_theme', currentTheme);
+            localStorage.setItem('cookiebomb_theme', currentTheme);
         }
         
-        function toggleGlassEffect() {
-            glassEffectEnabled = !glassEffectEnabled;
-            if (glassEffectEnabled) {
-                document.body.classList.add('glass-effect');
-                document.documentElement.style.setProperty('--glass-blur', 'blur(15px)');
-            } else {
-                document.body.classList.remove('glass-effect');
-                document.documentElement.style.setProperty('--glass-blur', 'none');
-            }
+        function updateAccentColor() {
+            document.documentElement.style.setProperty('--accent', accentColor);
+            document.documentElement.style.setProperty('--accent-hover', darkenColor(accentColor, 20));
+        }
+        
+        function darkenColor(color, percent) {
+            const num = parseInt(color.slice(1), 16);
+            const amt = Math.round(2.55 * percent);
+            const R = (num >> 16) - amt;
+            const G = (num >> 8 & 0x00FF) - amt;
+            const B = (num & 0x0000FF) - amt;
+            return "#" + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+                (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+                (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
         }
         
         function loadSettings() {
-            const savedTheme = localStorage.getItem('game_theme');
-            const savedSound = localStorage.getItem('game_sound');
-            const savedGlass = localStorage.getItem('game_glass');
+            const savedTheme = localStorage.getItem('cookiebomb_theme');
+            const savedSound = localStorage.getItem('cookiebomb_sound');
+            const savedAccent = localStorage.getItem('cookiebomb_accent');
             
             if (savedTheme === 'light') {
                 document.getElementById('themeToggle').checked = true;
@@ -1340,17 +1313,17 @@
                 soundEnabled = false;
             }
             
-            if (savedGlass === 'true') {
-                document.getElementById('glassToggle').checked = true;
-                glassEffectEnabled = true;
-                toggleGlassEffect();
+            if (savedAccent) {
+                accentColor = savedAccent;
+                document.getElementById('accentColor').value = savedAccent;
+                updateAccentColor();
             }
         }
         
         function saveSettings() {
-            localStorage.setItem('game_theme', currentTheme);
-            localStorage.setItem('game_sound', soundEnabled.toString());
-            localStorage.setItem('game_glass', glassEffectEnabled.toString());
+            localStorage.setItem('cookiebomb_theme', currentTheme);
+            localStorage.setItem('cookiebomb_sound', soundEnabled.toString());
+            localStorage.setItem('cookiebomb_accent', accentColor);
             showAlert('Настройки сохранены!', 'success');
             showScreen('menu');
         }
@@ -1385,7 +1358,7 @@
             initTelegram();
             loadSettings();
             
-            // Слайдер бомб (максимум 24!)
+            // Слайдер бомб
             const bombSlider = document.getElementById('bombSlider');
             const bombCountDisplay = document.getElementById('bombCountDisplay');
             const sliderValue = document.getElementById('sliderValue');
@@ -1439,7 +1412,12 @@
             document.getElementById('soundToggle').onchange = (e) => {
                 soundEnabled = e.target.checked;
             };
-            document.getElementById('glassToggle').onchange = toggleGlassEffect;
+            
+            // Выбор цвета акцента
+            document.getElementById('accentColor').onchange = (e) => {
+                accentColor = e.target.value;
+                updateAccentColor();
+            };
             
             // Инициализируем игру
             initGame();
